@@ -952,27 +952,10 @@ def convert_all(
 def main():
     parser = argparse.ArgumentParser()
     script_dir = Path(__file__).parent
-    parser.add_argument(
-        "--data-dir",
-        "-d",
-        default=script_dir / "data",
-        help="path to nuscenes data directory",
-    )
-    parser.add_argument(
-        "--dataset-name",
-        "-n",
-        default=["v1.0-mini"],
-        nargs="+",
-        help="dataset to convert",
-    )
-    parser.add_argument(
-        "--output-dir",
-        "-o",
-        type=Path,
-        default=script_dir / "output",
-        help="path to write MCAP files into",
-    )
-    parser.add_argument("--scene", "-s", nargs="*", help="specific scene(s) to write")
+    parser.add_argument("--data-dir", "-d", default=script_dir / "data")                # 原始数据集路径, 需要挂载进docker镜像
+    parser.add_argument("--dataset-name", "-n", default=["v1.0-mini"], nargs="+")       # 选取待转换的数据集split, "+"表示这个参数可以接受多个值, 需要使用空格隔开，这个参数必须传入值。否则会报错
+    parser.add_argument("--output-dir", "-o", type=Path, default=script_dir / "output") # 转化成果的mcap文件储存路径
+    parser.add_argument("--scene", "-s", nargs="*")                                     # 选取特定的scene完成mcap的转换, "*"表示这个参数可以接受多个值，需要使用空格格开, 也可以没有值
     parser.add_argument("--list-only", action="store_true", help="lists the scenes and exits")
 
     args = parser.parse_args()

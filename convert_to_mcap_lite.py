@@ -183,15 +183,15 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
     filepath.parent.mkdir(parents=True, exist_ok=True)
 
     Dict_Token_id = dict()  # change the token of each intance to id
-    id_idx = 0              # the first id is 0,第一次出现在视野中的id为0
-
+    id_idx = 0  # the first id is 0,第一次出现在视野中的id为0
     with open(filepath, "wb") as fp:
         print(f"Writing to {filepath}")
         writer = Writer(fp, compression=CompressionType.LZ4)
 
         protobuf_writer = ProtobufWriter(writer)
         writer.start(profile="", library="nuscenes2mcap")
-
+        Line_point_memory = {}
+        Line_point_color = {}
         while cur_sample is not None:
             sample_lidar = nusc.get("sample_data", cur_sample["data"]["LIDAR_TOP"])
             ego_pose = nusc.get("ego_pose", sample_lidar["ego_pose_token"])
@@ -223,11 +223,19 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
                     protobuf_writer.write_message(topic + "/camera_info", msg, stamp.to_nsec())
             # publish /markers/annotations
             scene_update = SceneUpdate()
+            Line_scene_update = SceneUpdate()
 
             for annotation_id in cur_sample["anns"]:
                 ann = nusc.get("sample_annotation", annotation_id)
                 marker_id = ann["instance_token"][:4]
                 c = np.array(nusc.explorer.get_color(ann["category_name"])) / 255.0
+    
+                if marker_id not in Line_point_memory:
+                    Line_point_memory.setdefault(marker_id,[])
+                Line_point_memory[marker_id].append([ann["translation"][0],ann["translation"][1],ann["translation"][2]])
+                
+                if marker_id not in Line_point_color:
+                    Line_point_color[marker_id] = [random.random(),random.random(),random.random(),random.random()]
 
                 delete_entity_all = scene_update.deletions.add()
                 delete_entity_all.type = 1
@@ -268,8 +276,7 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
                 texts.color.b = c[2]
                 texts.color.a = 1
               
-
-                # 将nuscene目标的原始ID 映射为数字
+                 # 将nuscene目标的原始ID 映射为数字
                 token_id = Dict_Token_id.get(ann["instance_token"])
                 if token_id is None:
                     Dict_Token_id[ann["instance_token"]] = str(id_idx)
@@ -278,6 +285,33 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
                 else:
                     texts.text = token_id
 
+
+            #ID跳变可视化
+            for key,points in Line_point_memory.items():
+                Line_entity = Line_scene_update.entities.add()
+
+                Line_delete_entity_all = Line_scene_update.deletions.add()
+                Line_delete_entity_all.type = 1
+                Line_delete_entity_all.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+
+                Line_entity.id = key
+                Line_entity.frame_id = "map"
+                Line_entity.timestamp.FromNanoseconds(stamp.to_nsec())
+                Line_entity.frame_locked = True
+                Line = Line_entity.lines.add()
+                Line.type = 0
+                Line.thickness = 0.2
+                Line.color.r = Line_point_color[key][0]
+                Line.color.g = Line_point_color[key][1]
+                Line.color.b = Line_point_color[key][2]
+                Line.color.a = Line_point_color[key][3]
+                Line.pose.orientation.w = ann["rotation"][1]
+                for point in points:
+                    Line.points.add(x = point[0],
+                                    y = point[1],
+                                    z = point[2])
+
+            protobuf_writer.write_message("/markers/track_line", Line_scene_update, stamp.to_nsec())
             protobuf_writer.write_message("/markers/annotations", scene_update, stamp.to_nsec())
             # publish /markers/car
             protobuf_writer.write_message("/markers/car", get_car_scene_update(stamp.to_nsec()), stamp.to_nsec())

@@ -121,6 +121,21 @@ def get_lidar(data_path, sample_data, frame_id) -> PointCloud:
         msg.data = pc_file.read()
         return msg
 
+def get_pcd(data_path, timestamp, frame_id) -> PointCloud:
+    pc_filename = data_path
+    pc = pypcd.PointCloud.from_path(pc_filename)
+    msg = PointCloud()
+    msg.frame_id = frame_id
+    msg.timestamp.FromMicroseconds(timestamp)
+    offset = 0
+    for name, size, count, ty in zip(pc.fields, pc.size, pc.count, pc.type):
+        assert count == 1
+        msg.fields.add(name=name, offset=offset, type=PCD_TO_PACKED_ELEMENT_TYPE_MAP[(ty, size)])
+        offset += size
+
+    msg.point_stride = offset
+    msg.data = pc.pc_data.tobytes()
+    return msg
 
 def get_ego_tf(ego_pose):
     ego_tf = FrameTransform()

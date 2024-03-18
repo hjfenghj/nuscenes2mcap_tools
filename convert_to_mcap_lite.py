@@ -195,6 +195,9 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
         while cur_sample is not None:
             sample_lidar = nusc.get("sample_data", cur_sample["data"]["LIDAR_TOP"])
             ego_pose = nusc.get("ego_pose", sample_lidar["ego_pose_token"])
+            e2g_r = ego_pose['rotation']
+            e2g_t = ego_pose["translation"]
+            e2g_r_mat = Quaternion(e2g_r).rotation_matrix  # used convert velo from global to ego
             stamp = get_time(ego_pose)
 
             # # publish /tf
@@ -224,6 +227,7 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
             # publish /markers/annotations
             scene_update = SceneUpdate()
             Line_scene_update = SceneUpdate()
+            gt_heading_scene_update = SceneUpdate()
 
             for annotation_id in cur_sample["anns"]:
                 ann = nusc.get("sample_annotation", annotation_id)
@@ -285,6 +289,40 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
                 else:
                     texts.text = token_id
 
+                # 目标heading
+                ann_center = np.array([ann["translation"][0], ann["translation"][1], ann["translation"][2]])
+                # conver ann_centerfrom global to ego
+                ann_center = np.dot(np.linalg.inv(e2g_r_mat), ann_center-np.array(e2g_t))
+                ann_orientation = np.array([ann["rotation"][0], ann["rotation"][1], ann["rotation"][2], ann["rotation"][3]])
+                quaternion = Quaternion(matrix = np.linalg.inv(e2g_r_mat))
+                ann_orientation = quaternion * ann_orientation
+
+                gt_heading_entity = gt_heading_scene_update.entities.add()
+                gt_heading_delete_entity_all = gt_heading_scene_update.deletions.add()
+                gt_heading_delete_entity_all.type = 1
+                gt_heading_delete_entity_all.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
+                gt_heading_entity.id = marker_id
+                gt_heading_entity.frame_id = "base_link"
+                gt_heading_entity.timestamp.FromNanoseconds(stamp.to_nsec())
+                gt_heading_entity.frame_locked = True
+                Line_heading = gt_heading_entity.arrows.add()
+                  
+                Line_heading.color.r = 255 / 255.0
+                Line_heading.color.g = 211 / 255.0
+                Line_heading.color.b = 155 / 255.0
+                Line_heading.color.a = 0.5
+                Line_heading.pose.position.x = ann_center[0]
+                Line_heading.pose.position.y = ann_center[1]
+                Line_heading.pose.position.z = ann_center[2] + ann["size"][2]/2
+                Line_heading.pose.orientation.w = ann_orientation[0]
+                Line_heading.pose.orientation.x = ann_orientation[1]
+                Line_heading.pose.orientation.y = ann_orientation[2]
+                Line_heading.pose.orientation.z = ann_orientation[3]
+                Line_heading.shaft_length = ann["size"][1]/2
+                Line_heading.shaft_diameter = 0.07
+                Line_heading.head_length = 0.01
+                Line_heading.head_diameter = 0.01
+
 
             #ID跳变可视化
             for key,points in Line_point_memory.items():
@@ -311,6 +349,7 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
                                     y = point[1],
                                     z = point[2])
 
+            protobuf_writer.write_message("/markers/gt_heading", gt_heading_scene_update, stamp.to_nsec()) 
             protobuf_writer.write_message("/markers/track_line", Line_scene_update, stamp.to_nsec())
             protobuf_writer.write_message("/markers/annotations", scene_update, stamp.to_nsec())
             # publish /markers/car

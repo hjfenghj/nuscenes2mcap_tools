@@ -228,6 +228,9 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
             scene_update = SceneUpdate()
             Line_scene_update = SceneUpdate()
             gt_heading_scene_update = SceneUpdate()
+            pred_velo_x_scene_update = SceneUpdate()
+            pred_velo_y_scene_update = SceneUpdate()
+            pred_veloArrow_scene_update = SceneUpdate()
 
             for annotation_id in cur_sample["anns"]:
                 ann = nusc.get("sample_annotation", annotation_id)
@@ -289,6 +292,84 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
                 else:
                     texts.text = token_id
 
+                # 速度x/y分速度发布, 用于后续拉速度曲线使用
+                # gt_anns global velo 
+                velo2d = nusc.box_velocity(annotation_id)[:2]                  # narray
+                # convert velo from global to ego
+                velo = np.array([*velo2d,0.0])
+                velo = velo @ np.linalg.inv(e2g_r_mat).T
+                velo2d = velo[:2]
+
+                ann_center = np.array([ann["translation"][0], ann["translation"][1], ann["translation"][2]])
+                # conver ann_centerfrom global to ego
+                ann_center = np.dot(np.linalg.inv(e2g_r_mat), ann_center-np.array(e2g_t))
+                ann_orientation = np.array([ann["rotation"][0], ann["rotation"][1], ann["rotation"][2], ann["rotation"][3]])
+                quaternion = Quaternion(matrix = np.linalg.inv(e2g_r_mat))
+                ann_orientation = quaternion * ann_orientation
+
+                delete_entity_all_velo_x = pred_velo_x_scene_update.deletions.add()
+                delete_entity_all_velo_x.type = 1
+                delete_entity_all_velo_x.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+                entity_velo_x = pred_velo_x_scene_update.entities.add()
+                entity_velo_x.frame_id = "base_link"
+                entity_velo_x.timestamp.FromNanoseconds(stamp.to_nsec())
+                entity_velo_x.id = marker_id
+                entity_velo_x.frame_locked = True
+                texts_velo_x = entity_velo_x.texts.add()
+                texts_velo_x.pose.position.x = ann_center[0]
+                texts_velo_x.pose.position.y = ann_center[1]
+                texts_velo_x.pose.position.z = ann_center[2]
+                texts_velo_x.pose.orientation.w = ann_orientation[0]
+                texts_velo_x.pose.orientation.x = ann_orientation[1]
+                texts_velo_x.pose.orientation.y = ann_orientation[2]
+                texts_velo_x.pose.orientation.z = ann_orientation[3]
+                texts_velo_x.font_size = 0.01
+                texts_velo_x.text = str(velo2d[0])
+
+                delete_entity_all_velo_y = pred_velo_y_scene_update.deletions.add()
+                delete_entity_all_velo_y.type = 1
+                delete_entity_all_velo_y.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+                entity_velo_y = pred_velo_y_scene_update.entities.add()
+                entity_velo_y.frame_id = "base_link"
+                entity_velo_y.timestamp.FromNanoseconds(stamp.to_nsec())
+                entity_velo_y.id = marker_id
+                entity_velo_y.frame_locked = True
+                texts_velo_y = entity_velo_y.texts.add()
+                texts_velo_y.pose.position.x = ann_center[0]
+                texts_velo_y.pose.position.y = ann_center[1]
+                texts_velo_y.pose.position.z = ann_center[2]
+                texts_velo_y.pose.orientation.w = ann_orientation[0]
+                texts_velo_y.pose.orientation.x = ann_orientation[1]
+                texts_velo_y.pose.orientation.y = ann_orientation[2]
+                texts_velo_y.pose.orientation.z = ann_orientation[3]
+                texts_velo_y.font_size = 0.01
+                texts_velo_y.text = str(velo2d[1])
+
+                # 速度方向可视化
+                pred_velArrow_entity = pred_veloArrow_scene_update.entities.add()
+                pred_velArrow_delete_entity_all = pred_veloArrow_scene_update.deletions.add()
+                pred_velArrow_delete_entity_all.type = 1
+                pred_velArrow_delete_entity_all.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
+                pred_velArrow_entity.id = marker_id
+                pred_velArrow_entity.frame_id = "base_link"
+                pred_velArrow_entity.timestamp.FromNanoseconds(stamp.to_nsec())
+                pred_velArrow_entity.frame_locked = True
+                Line = pred_velArrow_entity.lines.add()
+                Line.type = 0
+                Line.thickness = 0.2
+                Line.color.r = 218 / 255.0
+                Line.color.g = 112 / 255.0
+                Line.color.b = 214 / 255.0
+                Line.color.a = 0.8
+                Line.points.add(x = ann_center[0], y = ann_center[1], z = ann_center[2])                
+                vel_L2 = np.sqrt(velo2d[0]**2 + velo2d[1]**2)
+                alpha = 3 * np.tanh(vel_L2)/vel_L2
+                if vel_L2 <= 6: # 21.6km/h 
+                    Line.points.add(x = ann_center[0] + velo2d[0]/6.0, y = ann_center[1] + velo2d[1]/6.0, z = ann_center[2]) 
+                else:
+                    Line.points.add(x = ann_center[0] + velo2d[0]*alpha, y = ann_center[1] + velo2d[1]*alpha, z = ann_center[2]) 
+
+
                 # 目标heading
                 ann_center = np.array([ann["translation"][0], ann["translation"][1], ann["translation"][2]])
                 # conver ann_centerfrom global to ego
@@ -349,6 +430,9 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
                                     y = point[1],
                                     z = point[2])
 
+            protobuf_writer.write_message("/markers/velArrow", pred_veloArrow_scene_update, stamp.to_nsec()) 
+            protobuf_writer.write_message("/markers/veloX", pred_velo_x_scene_update, stamp.to_nsec()) 
+            protobuf_writer.write_message("/markers/veloY", pred_velo_y_scene_update, stamp.to_nsec())
             protobuf_writer.write_message("/markers/gt_heading", gt_heading_scene_update, stamp.to_nsec()) 
             protobuf_writer.write_message("/markers/track_line", Line_scene_update, stamp.to_nsec())
             protobuf_writer.write_message("/markers/annotations", scene_update, stamp.to_nsec())

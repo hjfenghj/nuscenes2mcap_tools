@@ -146,7 +146,6 @@ def get_ego_tf(ego_pose):
     ego_tf.rotation.CopyFrom(get_rotation(ego_pose))
     return ego_tf
 
-
 def get_sensor_tf(nusc, sensor_id, sample_data):
     sensor_tf = FrameTransform()
     sensor_tf.parent_frame_id = "base_link"
@@ -197,261 +196,282 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
 
     filepath.parent.mkdir(parents=True, exist_ok=True)
 
-    Dict_Token_id = dict()  # change the token of each intance to id
-    id_idx = 0  # the first id is 0,第一次出现在视野中的id为0
     with open(filepath, "wb") as fp:
         print(f"Writing to {filepath}")
         writer = Writer(fp, compression=CompressionType.LZ4)
-
         protobuf_writer = ProtobufWriter(writer)
         writer.start(profile="", library="nuscenes2mcap")
-        Line_point_memory = {}
-        Line_point_color = {}
+
+        # 用于轨迹可视化, 记录每个目标ID对应生命周期的所有位置信息
+        trackPoints = {}
+        # 用于轨迹可视化是体现真值ID跳变
+        trackP2PColor = {}
+
         while cur_sample is not None:
+
             sample_lidar = nusc.get("sample_data", cur_sample["data"]["LIDAR_TOP"])
             ego_pose = nusc.get("ego_pose", sample_lidar["ego_pose_token"])
-            e2g_r = ego_pose['rotation']
-            e2g_t = ego_pose["translation"]
-            e2g_r_mat = Quaternion(e2g_r).rotation_matrix  # used convert velo from global to ego
+            ego2globalTran = ego_pose["translation"]
+            ego2globalRotMat = Quaternion(ego_pose['rotation']).rotation_matrix  # used convert " " from global to ego
             stamp = get_time(ego_pose)
 
-            # # publish /tf
+            ############## 发布自车系到世界系的tf变换 ###############
             protobuf_writer.write_message("/tf", get_ego_tf(ego_pose), stamp.to_nsec())
 
             # iterate sensors
             for sensor_id, sample_token in cur_sample["data"].items():
                 pbar.update(1)
                 sample_data = nusc.get("sample_data", sample_token)
-                topic = "/" + sensor_id
 
-                # create sensor transform
+                ############ 发布自车系到各传感器坐标系的tf变换 ##################
                 protobuf_writer.write_message("/tf", get_sensor_tf(nusc, sensor_id, sample_data), stamp.to_nsec())
 
-                # write the sensor data
+                ############ 发布各传感器数据  ##################
                 if sample_data["sensor_modality"] == "radar":
                     msg = get_radar(data_path, sample_data, sensor_id)
-                    protobuf_writer.write_message(topic, msg, stamp.to_nsec())
+                    protobuf_writer.write_message( "/" + sensor_id, msg, stamp.to_nsec())
+
                 elif sample_data["sensor_modality"] == "lidar":
                     msg = get_lidar(data_path, sample_data, sensor_id)
-                    protobuf_writer.write_message(topic, msg, stamp.to_nsec())
+                    protobuf_writer.write_message( "/" + sensor_id, msg, stamp.to_nsec())
+                
                 elif sample_data["sensor_modality"] == "camera":
                     msg = get_camera(data_path, sample_data, sensor_id)
-                    protobuf_writer.write_message(topic + "/image_rect_compressed", msg, stamp.to_nsec())
+                    protobuf_writer.write_message( "/" + sensor_id + "/image_rect_compressed", msg, stamp.to_nsec())
+                    ############# 相机内外参 ##############
                     msg = get_camera_info(nusc, sample_data, sensor_id)
-                    protobuf_writer.write_message(topic + "/camera_info", msg, stamp.to_nsec())
-            # publish /markers/annotations
-            scene_update = SceneUpdate()
-            Line_scene_update = SceneUpdate()
-            gt_heading_scene_update = SceneUpdate()
-            pred_velo_x_scene_update = SceneUpdate()
-            pred_velo_y_scene_update = SceneUpdate()
-            pred_veloArrow_scene_update = SceneUpdate()
+                    protobuf_writer.write_message( "/" + sensor_id + "/camera_info", msg, stamp.to_nsec())
+
+                else:
+                    pass
+
+            ############# 可视化各种marker ##############
+            annsSceneUpdate           = SceneUpdate()
+            annsIdSceneUpdate       = SceneUpdate()
+            annsVeloXSceneUpdate      = SceneUpdate()
+            annsVeloYSceneUpdate      = SceneUpdate()
+            annsVeloArrowSceneUpdate  = SceneUpdate()
+            annsHeadingSceneUpdate    = SceneUpdate()
+            trackSceneUpdate          = SceneUpdate()
 
             for annotation_id in cur_sample["anns"]:
                 ann = nusc.get("sample_annotation", annotation_id)
-                marker_id = ann["instance_token"][:4]
-                c = np.array(nusc.explorer.get_color(ann["category_name"])) / 255.0
-    
-                if marker_id not in Line_point_memory:
-                    Line_point_memory.setdefault(marker_id,[])
-                Line_point_memory[marker_id].append([ann["translation"][0],ann["translation"][1],ann["translation"][2]])
+                annId = ann["instance_token"][:4]
+                classColor = np.array(nusc.explorer.get_color(ann["category_name"])) / 255.0
+
+                ############ 横向/纵向分速度, 用于后续拉速度曲线使用 ################
+                velo2dGlobal = nusc.box_velocity(annotation_id)[:2]                                # 世界系下的速度(大小, 方向)
+                veloEgo      = np.array([*velo2dGlobal, 0.0]) @ np.linalg.inv(ego2globalRotMat).T  # 自车系下的速度(绝对速度范数不变, 方向转化为自车系下的速度方向)
+                velo2dEgo    = veloEgo[:2]
+
+                ############ GT框的方位角变换, 用于GT框可视化的方位 #################
+                annCenterGlobal = np.array([ann["translation"][0], ann["translation"][1], ann["translation"][2]])                  # 世界系下的GT框位置
+                annCenterEgo    = np.dot(np.linalg.inv(ego2globalRotMat), annCenterGlobal - np.array(ego2globalTran))              # 自车系下的GT框位置
+                annOrientGlobal  = np.array([ann["rotation"][0], ann["rotation"][1], ann["rotation"][2], ann["rotation"][3]])      # 框在世界系下的方位角四元数
+                gloabl2egoOrient = Quaternion(matrix = np.linalg.inv(ego2globalRotMat))                                            # 世界系到自车系下的四元数变换
+                annOrientEgo = gloabl2egoOrient * annOrientGlobal                                                                  # 框在自车系下的方位角四元数
+
+                ############ 记录每个ID的各轨迹点和前后两帧轨迹线的颜色, 用于可视化轨迹和观察真值的ID跳变 ################
+                if annId not in trackPoints:
+                    trackPoints.setdefault(annId,[])
+                trackPoints[annId].append([ann["translation"][0],ann["translation"][1],ann["translation"][2]])
                 
-                if marker_id not in Line_point_color:
-                    Line_point_color[marker_id] = [random.random(),random.random(),random.random(),random.random()]
+                if annId not in trackP2PColor:
+                    trackP2PColor[annId] = [random.random(),random.random(),random.random(),random.random()]
 
-                delete_entity_all = scene_update.deletions.add()
-                delete_entity_all.type = 1
-                delete_entity_all.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+                ############# 发布GT框marker ###################
+                annsDeleteEntity      = annsSceneUpdate.deletions.add()
+                annsDeleteEntity.type = 1
+                annsDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
 
-                entity = scene_update.entities.add()
-                entity.frame_id = "map"
-                entity.timestamp.FromNanoseconds(stamp.to_nsec())
-                entity.id = marker_id
-                entity.frame_locked = True
-                cube = entity.cubes.add()
-                cube.pose.position.x = ann["translation"][0]
-                cube.pose.position.y = ann["translation"][1]
-                cube.pose.position.z = ann["translation"][2]
-                cube.pose.orientation.w = ann["rotation"][0]
-                cube.pose.orientation.x = ann["rotation"][1]
-                cube.pose.orientation.y = ann["rotation"][2]
-                cube.pose.orientation.z = ann["rotation"][3]
-                cube.size.x = ann["size"][1]
-                cube.size.y = ann["size"][0]
-                cube.size.z = ann["size"][2]
-                cube.color.r = c[0]
-                cube.color.g = c[1]
-                cube.color.b = c[2]
-                cube.color.a = 0.5
+                annsEntity = annsSceneUpdate.entities.add()
+                annsEntity.timestamp.FromNanoseconds(stamp.to_nsec())
 
-                texts = entity.texts.add()
-                texts.pose.position.x = ann["translation"][0]
-                texts.pose.position.y = ann["translation"][1]
-                texts.pose.position.z = ann["translation"][2] + ann["size"][2]/2
-                texts.pose.orientation.w = ann["rotation"][0]
-                texts.pose.orientation.x = ann["rotation"][1]
-                texts.pose.orientation.y = ann["rotation"][2]
-                texts.pose.orientation.z = ann["rotation"][3]
-                texts.font_size = 0.7
-                texts.color.r = c[0]
-                texts.color.g = c[1]
-                texts.color.b = c[2]
-                texts.color.a = 1
-              
-                 # 将nuscene目标的原始ID 映射为数字
-                token_id = Dict_Token_id.get(ann["instance_token"])
-                if token_id is None:
-                    Dict_Token_id[ann["instance_token"]] = str(id_idx)
-                    id_idx += 1
-                    texts.text = Dict_Token_id[ann["instance_token"]]
+                annsEntity.frame_id         = "map"
+                annsEntity.id               = annId
+                annsEntity.frame_locked     = True
+                annscube                    = annsEntity.cubes.add()
+                annscube.pose.position.x    = ann["translation"][0]
+                annscube.pose.position.y    = ann["translation"][1]
+                annscube.pose.position.z    = ann["translation"][2]
+                annscube.pose.orientation.w = ann["rotation"][0]
+                annscube.pose.orientation.x = ann["rotation"][1]
+                annscube.pose.orientation.y = ann["rotation"][2]
+                annscube.pose.orientation.z = ann["rotation"][3]
+                annscube.size.x             = ann["size"][1]
+                annscube.size.y             = ann["size"][0]
+                annscube.size.z             = ann["size"][2]
+                annscube.color.r            = classColor[0]
+                annscube.color.g            = classColor[1]
+                annscube.color.b            = classColor[2]
+                annscube.color.a            = 0.5
+
+
+                #################### 发布GT框ID信息, 与GT框话题分离发布是方便关闭ID可视化 #################
+                annsIdDeleteEntity      = annsIdSceneUpdate.deletions.add()
+                annsIdDeleteEntity.type = 1
+                annsIdDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+
+                annsIdEntity = annsIdSceneUpdate.entities.add()
+                annsIdEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+
+                annsIdEntity.frame_id          = "map"
+                annsIdEntity.id                = annId
+                annsIdEntity.frame_locked      = True
+                annsIdTexts                    = annsIdEntity.texts.add()
+                annsIdTexts.pose.position.x    = ann["translation"][0]
+                annsIdTexts.pose.position.y    = ann["translation"][1]
+                annsIdTexts.pose.position.z    = ann["translation"][2] + ann["size"][2]/2
+                annsIdTexts.pose.orientation.w = ann["rotation"][0]
+                annsIdTexts.pose.orientation.x = ann["rotation"][1]
+                annsIdTexts.pose.orientation.y = ann["rotation"][2]
+                annsIdTexts.pose.orientation.z = ann["rotation"][3]
+                annsIdTexts.font_size          = 0.7
+                annsIdTexts.color.r            = classColor[0]
+                annsIdTexts.color.g            = classColor[1]
+                annsIdTexts.color.b            = classColor[2]
+                annsIdTexts.color.a            = 1
+                annsIdTexts.text               = annId
+
+                ################ 发布纵向速度信息marker, 用于拉速度曲线使用 ################
+                annsVeloXDeleteEntity        = annsVeloXSceneUpdate.deletions.add()
+                annsVeloXDeleteEntity.type   = 1
+
+                annsVeloXDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+
+                annsVeloXEntity              = annsVeloXSceneUpdate.entities.add()
+                annsVeloXEntity.frame_id     = "base_link"
+
+                annsVeloXEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                annsVeloXEntity.id           = annId
+                annsVeloXEntityTexts         = annsVeloXEntity.texts.add()
+                annsVeloXEntity.frame_locked = True
+
+                annsVeloXEntityTexts.pose.position.x    = annCenterEgo[0]
+                annsVeloXEntityTexts.pose.position.y    = annCenterEgo[1]
+                annsVeloXEntityTexts.pose.position.z    = annCenterEgo[2]
+                annsVeloXEntityTexts.pose.orientation.w = annOrientEgo[0]
+                annsVeloXEntityTexts.pose.orientation.x = annOrientEgo[1]
+                annsVeloXEntityTexts.pose.orientation.y = annOrientEgo[2]
+                annsVeloXEntityTexts.pose.orientation.z = annOrientEgo[3]
+                annsVeloXEntityTexts.font_size          = 0.01
+                annsVeloXEntityTexts.text               = str(velo2dEgo[0])
+
+                ################ 发布横向速度信息marker, 用于拉速度曲线使用 ################
+                annsVeloYDeleteEntity        = annsVeloYSceneUpdate.deletions.add()
+                annsVeloYDeleteEntity.type   = 1
+
+                annsVeloYDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+
+                annsVeloYEntity              = annsVeloYSceneUpdate.entities.add()
+                annsVeloYEntity.frame_id     = "base_link"
+
+                annsVeloYEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                annsVeloYEntity.id           = annId
+                annsVeloYEntityTexts         = annsVeloYEntity.texts.add()
+                annsVeloYEntity.frame_locked = True
+       
+                annsVeloYEntityTexts.pose.position.x    = annCenterEgo[0]
+                annsVeloYEntityTexts.pose.position.y    = annCenterEgo[1]
+                annsVeloYEntityTexts.pose.position.z    = annCenterEgo[2]
+                annsVeloYEntityTexts.pose.orientation.w = annOrientEgo[0]
+                annsVeloYEntityTexts.pose.orientation.x = annOrientEgo[1]
+                annsVeloYEntityTexts.pose.orientation.y = annOrientEgo[2]
+                annsVeloYEntityTexts.pose.orientation.z = annOrientEgo[3]
+                annsVeloYEntityTexts.font_size          = 0.01
+                annsVeloYEntityTexts.text               = str(velo2dEgo[1])
+
+                ################### 发布速度箭头marker, 用于观察车辆行驶方向 ##################
+                annsVeloArrowDeleteEntity      = annsVeloArrowSceneUpdate.deletions.add()
+                annsVeloArrowDeleteEntity.type = 1
+
+                annsVeloArrowDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
+
+                annsVeloArrowEntity              = annsVeloArrowSceneUpdate.entities.add()
+                annsVeloArrowEntity.id           = annId
+                annsVeloArrowEntity.frame_id     = "base_link"
+                annsVeloArrowEntity.frame_locked = True
+
+                annsVeloArrowEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+
+                annsVeloArrowEntityLine           = annsVeloArrowEntity.lines.add()
+                annsVeloArrowEntityLine.type      = 0
+                annsVeloArrowEntityLine.thickness = 0.2
+                annsVeloArrowEntityLine.color.r   = 218 / 255.0
+                annsVeloArrowEntityLine.color.g   = 112 / 255.0
+                annsVeloArrowEntityLine.color.b   = 214 / 255.0
+                annsVeloArrowEntityLine.color.a   = 0.8
+
+                annsVeloArrowEntityLine.points.add(x = annCenterEgo[0], y = annCenterEgo[1], z = annCenterEgo[2])  
+
+                velo2dEgoL2 = np.sqrt(velo2dEgo[0]**2 + velo2dEgo[1]**2)        # 速度的L2范数
+                alpha       = 3 * np.tanh(velo2dEgoL2)/velo2dEgoL2                  
+                if velo2dEgoL2 <= 6: # 21.6km/h 
+                    annsVeloArrowEntityLine.points.add(x = annCenterEgo[0] + velo2dEgo[0] / 6.0, y = annCenterEgo[1] + velo2dEgo[1] / 6.0, z = annCenterEgo[2]) 
                 else:
-                    texts.text = token_id
+                    annsVeloArrowEntityLine.points.add(x = annCenterEgo[0] + velo2dEgo[0] * alpha, y = annCenterEgo[1] + velo2dEgo[1] * alpha, z = annCenterEgo[2]) 
 
-                # 速度x/y分速度发布, 用于后续拉速度曲线使用
-                # gt_anns global velo 
-                velo2d = nusc.box_velocity(annotation_id)[:2]                  # narray
-                # convert velo from global to ego
-                velo = np.array([*velo2d,0.0])
-                velo = velo @ np.linalg.inv(e2g_r_mat).T
-                velo2d = velo[:2]
+                ################## 发布GT框heading信息, 用于观察车身朝向 ###############
+                annsHeadingDeleteEntity      = annsHeadingSceneUpdate.deletions.add()
+                annsHeadingDeleteEntity.type = 1
+                annsHeadingDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
 
-                ann_center = np.array([ann["translation"][0], ann["translation"][1], ann["translation"][2]])
-                # conver ann_centerfrom global to ego
-                ann_center = np.dot(np.linalg.inv(e2g_r_mat), ann_center-np.array(e2g_t))
-                ann_orientation = np.array([ann["rotation"][0], ann["rotation"][1], ann["rotation"][2], ann["rotation"][3]])
-                quaternion = Quaternion(matrix = np.linalg.inv(e2g_r_mat))
-                ann_orientation = quaternion * ann_orientation
+                annsHeadingEntity              = annsHeadingSceneUpdate.entities.add()
+                annsHeadingEntity.id           = annId
+                annsHeadingEntity.frame_id     = "base_link"
+                annsHeadingEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                annsHeadingEntity.frame_locked = True
 
-                delete_entity_all_velo_x = pred_velo_x_scene_update.deletions.add()
-                delete_entity_all_velo_x.type = 1
-                delete_entity_all_velo_x.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
-                entity_velo_x = pred_velo_x_scene_update.entities.add()
-                entity_velo_x.frame_id = "base_link"
-                entity_velo_x.timestamp.FromNanoseconds(stamp.to_nsec())
-                entity_velo_x.id = marker_id
-                entity_velo_x.frame_locked = True
-                texts_velo_x = entity_velo_x.texts.add()
-                texts_velo_x.pose.position.x = ann_center[0]
-                texts_velo_x.pose.position.y = ann_center[1]
-                texts_velo_x.pose.position.z = ann_center[2]
-                texts_velo_x.pose.orientation.w = ann_orientation[0]
-                texts_velo_x.pose.orientation.x = ann_orientation[1]
-                texts_velo_x.pose.orientation.y = ann_orientation[2]
-                texts_velo_x.pose.orientation.z = ann_orientation[3]
-                texts_velo_x.font_size = 0.01
-                texts_velo_x.text = str(velo2d[0])
+                annsHeadingLine         = annsHeadingEntity.arrows.add()  
+                annsHeadingLine.color.r = 255 / 255.0
+                annsHeadingLine.color.g = 211 / 255.0
+                annsHeadingLine.color.b = 155 / 255.0
+                annsHeadingLine.color.a = 0.5
 
-                delete_entity_all_velo_y = pred_velo_y_scene_update.deletions.add()
-                delete_entity_all_velo_y.type = 1
-                delete_entity_all_velo_y.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
-                entity_velo_y = pred_velo_y_scene_update.entities.add()
-                entity_velo_y.frame_id = "base_link"
-                entity_velo_y.timestamp.FromNanoseconds(stamp.to_nsec())
-                entity_velo_y.id = marker_id
-                entity_velo_y.frame_locked = True
-                texts_velo_y = entity_velo_y.texts.add()
-                texts_velo_y.pose.position.x = ann_center[0]
-                texts_velo_y.pose.position.y = ann_center[1]
-                texts_velo_y.pose.position.z = ann_center[2]
-                texts_velo_y.pose.orientation.w = ann_orientation[0]
-                texts_velo_y.pose.orientation.x = ann_orientation[1]
-                texts_velo_y.pose.orientation.y = ann_orientation[2]
-                texts_velo_y.pose.orientation.z = ann_orientation[3]
-                texts_velo_y.font_size = 0.01
-                texts_velo_y.text = str(velo2d[1])
+                annsHeadingLine.pose.position.x    = annCenterEgo[0]
+                annsHeadingLine.pose.position.y    = annCenterEgo[1]
+                annsHeadingLine.pose.position.z    = annCenterEgo[2] + ann["size"][2]/2
+                annsHeadingLine.pose.orientation.w = annOrientEgo[0]
+                annsHeadingLine.pose.orientation.x = annOrientEgo[1]
+                annsHeadingLine.pose.orientation.y = annOrientEgo[2]
+                annsHeadingLine.pose.orientation.z = annOrientEgo[3]
+                annsHeadingLine.shaft_length       = ann["size"][1]/2
+                annsHeadingLine.shaft_diameter     = 0.07
+                annsHeadingLine.head_length        = 0.01
+                annsHeadingLine.head_diameter      = 0.01
 
-                # 速度方向可视化
-                pred_velArrow_entity = pred_veloArrow_scene_update.entities.add()
-                pred_velArrow_delete_entity_all = pred_veloArrow_scene_update.deletions.add()
-                pred_velArrow_delete_entity_all.type = 1
-                pred_velArrow_delete_entity_all.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
-                pred_velArrow_entity.id = marker_id
-                pred_velArrow_entity.frame_id = "base_link"
-                pred_velArrow_entity.timestamp.FromNanoseconds(stamp.to_nsec())
-                pred_velArrow_entity.frame_locked = True
-                Line = pred_velArrow_entity.lines.add()
-                Line.type = 0
-                Line.thickness = 0.2
-                Line.color.r = 218 / 255.0
-                Line.color.g = 112 / 255.0
-                Line.color.b = 214 / 255.0
-                Line.color.a = 0.8
-                Line.points.add(x = ann_center[0], y = ann_center[1], z = ann_center[2])                
-                vel_L2 = np.sqrt(velo2d[0]**2 + velo2d[1]**2)
-                alpha = 3 * np.tanh(vel_L2)/vel_L2
-                if vel_L2 <= 6: # 21.6km/h 
-                    Line.points.add(x = ann_center[0] + velo2d[0]/6.0, y = ann_center[1] + velo2d[1]/6.0, z = ann_center[2]) 
-                else:
-                    Line.points.add(x = ann_center[0] + velo2d[0]*alpha, y = ann_center[1] + velo2d[1]*alpha, z = ann_center[2]) 
+            protobuf_writer.write_message("/markers/annotations", annsSceneUpdate, stamp.to_nsec())
+            protobuf_writer.write_message("/markers/annotationsID", annsIdSceneUpdate, stamp.to_nsec())
+            protobuf_writer.write_message("/markers/veloX", annsVeloXSceneUpdate, stamp.to_nsec()) 
+            protobuf_writer.write_message("/markers/veloY", annsVeloYSceneUpdate, stamp.to_nsec())
+            protobuf_writer.write_message("/markers/velArrow", annsVeloArrowSceneUpdate, stamp.to_nsec()) 
+            protobuf_writer.write_message("/markers/gt_heading", annsHeadingSceneUpdate, stamp.to_nsec()) 
 
+            #################### 发布轨迹线和帧真值ID跳变 ##############
+            for key, points in trackPoints.items():
 
-                # 目标heading
-                ann_center = np.array([ann["translation"][0], ann["translation"][1], ann["translation"][2]])
-                # conver ann_centerfrom global to ego
-                ann_center = np.dot(np.linalg.inv(e2g_r_mat), ann_center-np.array(e2g_t))
-                ann_orientation = np.array([ann["rotation"][0], ann["rotation"][1], ann["rotation"][2], ann["rotation"][3]])
-                quaternion = Quaternion(matrix = np.linalg.inv(e2g_r_mat))
-                ann_orientation = quaternion * ann_orientation
+                trackDeleteEntity = trackSceneUpdate.deletions.add()
+                trackDeleteEntity.type = 1
+                trackDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
 
-                gt_heading_entity = gt_heading_scene_update.entities.add()
-                gt_heading_delete_entity_all = gt_heading_scene_update.deletions.add()
-                gt_heading_delete_entity_all.type = 1
-                gt_heading_delete_entity_all.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
-                gt_heading_entity.id = marker_id
-                gt_heading_entity.frame_id = "base_link"
-                gt_heading_entity.timestamp.FromNanoseconds(stamp.to_nsec())
-                gt_heading_entity.frame_locked = True
-                Line_heading = gt_heading_entity.arrows.add()
-                  
-                Line_heading.color.r = 255 / 255.0
-                Line_heading.color.g = 211 / 255.0
-                Line_heading.color.b = 155 / 255.0
-                Line_heading.color.a = 0.5
-                Line_heading.pose.position.x = ann_center[0]
-                Line_heading.pose.position.y = ann_center[1]
-                Line_heading.pose.position.z = ann_center[2] + ann["size"][2]/2
-                Line_heading.pose.orientation.w = ann_orientation[0]
-                Line_heading.pose.orientation.x = ann_orientation[1]
-                Line_heading.pose.orientation.y = ann_orientation[2]
-                Line_heading.pose.orientation.z = ann_orientation[3]
-                Line_heading.shaft_length = ann["size"][1]/2
-                Line_heading.shaft_diameter = 0.07
-                Line_heading.head_length = 0.01
-                Line_heading.head_diameter = 0.01
+                trackEntity              = trackSceneUpdate.entities.add()
+                trackEntity.id           = key
+                trackEntity.frame_id     = "map"
+                trackEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                trackEntity.frame_locked = True
 
-
-            #ID跳变可视化
-            for key,points in Line_point_memory.items():
-                Line_entity = Line_scene_update.entities.add()
-
-                Line_delete_entity_all = Line_scene_update.deletions.add()
-                Line_delete_entity_all.type = 1
-                Line_delete_entity_all.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
-
-                Line_entity.id = key
-                Line_entity.frame_id = "map"
-                Line_entity.timestamp.FromNanoseconds(stamp.to_nsec())
-                Line_entity.frame_locked = True
-                Line = Line_entity.lines.add()
-                Line.type = 0
-                Line.thickness = 0.2
-                Line.color.r = Line_point_color[key][0]
-                Line.color.g = Line_point_color[key][1]
-                Line.color.b = Line_point_color[key][2]
-                Line.color.a = Line_point_color[key][3]
-                Line.pose.orientation.w = ann["rotation"][1]
+                trackEntityLine                    = trackEntity.lines.add()
+                trackEntityLine.type               = 0
+                trackEntityLine.thickness          = 0.2
+                trackEntityLine.color.r            = trackP2PColor[key][0]
+                trackEntityLine.color.g            = trackP2PColor[key][1]
+                trackEntityLine.color.b            = trackP2PColor[key][2]
+                trackEntityLine.color.a            = trackP2PColor[key][3]
+                trackEntityLine.pose.orientation.w = ann["rotation"][1]
                 for point in points:
-                    Line.points.add(x = point[0],
-                                    y = point[1],
-                                    z = point[2])
+                    trackEntityLine.points.add(x = point[0], y = point[1], z = point[2])
 
-            protobuf_writer.write_message("/markers/velArrow", pred_veloArrow_scene_update, stamp.to_nsec()) 
-            protobuf_writer.write_message("/markers/veloX", pred_velo_x_scene_update, stamp.to_nsec()) 
-            protobuf_writer.write_message("/markers/veloY", pred_velo_y_scene_update, stamp.to_nsec())
-            protobuf_writer.write_message("/markers/gt_heading", gt_heading_scene_update, stamp.to_nsec()) 
-            protobuf_writer.write_message("/markers/track_line", Line_scene_update, stamp.to_nsec())
-            protobuf_writer.write_message("/markers/annotations", scene_update, stamp.to_nsec())
-            # publish /markers/car
+            protobuf_writer.write_message("/markers/track_line", trackSceneUpdate, stamp.to_nsec())
             protobuf_writer.write_message("/markers/car", get_car_scene_update(stamp.to_nsec()), stamp.to_nsec())
 
             # move to the next sample

@@ -536,13 +536,13 @@
     "3D!3jbt1lb": {
       "cameraState": {
         "perspective": false,
-        "distance": 234.5832191773341,
+        "distance": 79.89004262280585,
         "phi": 42.66239496066665,
-        "thetaOffset": 89.9031897299588,
+        "thetaOffset": 88.89548693586703,
         "targetOffset": [
-          25.590157518046,
-          -2.0733469318681697,
-          1.4433407439997157e-15
+          4.35261173736838,
+          1.9711880899020182,
+          5.446798092301858e-15
         ],
         "target": [
           0,
@@ -561,7 +561,11 @@
       },
       "followMode": "follow-pose",
       "scene": {},
-      "transforms": {},
+      "transforms": {
+        "frame:base_link": {
+          "visible": false
+        }
+      },
       "topics": {
         "/LIDAR_TOP": {
           "visible": true,
@@ -603,7 +607,7 @@
           "colorMap": "turbo"
         },
         "/CAM_BACK_LEFT/image_rect_compressed": {
-          "visible": true,
+          "visible": false,
           "frameLocked": true,
           "cameraInfoTopic": "/CAM_BACK_LEFT/camera_info",
           "distance": 1,
@@ -611,7 +615,7 @@
           "color": "#ffffff"
         },
         "/CAM_BACK_RIGHT/image_rect_compressed": {
-          "visible": true,
+          "visible": false,
           "frameLocked": true,
           "cameraInfoTopic": "/CAM_BACK_RIGHT/camera_info",
           "distance": 1,
@@ -619,7 +623,7 @@
           "color": "#ffffff"
         },
         "/CAM_BACK/image_rect_compressed": {
-          "visible": true,
+          "visible": false,
           "frameLocked": true,
           "cameraInfoTopic": "/CAM_BACK/camera_info",
           "distance": 1,
@@ -627,7 +631,7 @@
           "color": "#ffffff"
         },
         "/CAM_FRONT_LEFT/image_rect_compressed": {
-          "visible": true,
+          "visible": false,
           "frameLocked": true,
           "cameraInfoTopic": "/CAM_FRONT_LEFT/camera_info",
           "distance": 1,
@@ -635,7 +639,7 @@
           "color": "#ffffff"
         },
         "/CAM_FRONT_RIGHT/image_rect_compressed": {
-          "visible": true,
+          "visible": false,
           "frameLocked": true,
           "cameraInfoTopic": "/CAM_FRONT_RIGHT/camera_info",
           "distance": 1,
@@ -643,7 +647,7 @@
           "color": "#ffffff"
         },
         "/CAM_FRONT/image_rect_compressed": {
-          "visible": true,
+          "visible": false,
           "frameLocked": true,
           "cameraInfoTopic": "/CAM_FRONT/camera_info",
           "distance": 1,
@@ -651,22 +655,22 @@
           "color": "#ffffff"
         },
         "/CAM_BACK_LEFT/camera_info": {
-          "visible": true
+          "visible": false
         },
         "/CAM_BACK_RIGHT/camera_info": {
-          "visible": true
+          "visible": false
         },
         "/CAM_BACK/camera_info": {
-          "visible": true
+          "visible": false
         },
         "/CAM_FRONT_LEFT/camera_info": {
-          "visible": true
+          "visible": false
         },
         "/CAM_FRONT_RIGHT/camera_info": {
-          "visible": true
+          "visible": false
         },
         "/CAM_FRONT/camera_info": {
-          "visible": true
+          "visible": false
         },
         "/semantic_map": {
           "visible": true
@@ -677,36 +681,54 @@
           "colorMap": "turbo"
         },
         "/RADAR_BACK_LEFT": {
-          "visible": true,
+          "visible": false,
           "colorField": "x",
           "colorMode": "colormap",
           "colorMap": "turbo"
         },
         "/RADAR_BACK_RIGHT": {
-          "visible": true,
+          "visible": false,
           "colorField": "x",
           "colorMode": "colormap",
           "colorMap": "turbo"
         },
         "/RADAR_FRONT": {
-          "visible": true,
+          "visible": false,
           "colorField": "x",
           "colorMode": "colormap",
           "colorMap": "turbo"
         },
         "/RADAR_FRONT_LEFT": {
-          "visible": true,
+          "visible": false,
           "colorField": "x",
           "colorMode": "colormap",
           "colorMap": "turbo"
         },
         "/RADAR_FRONT_RIGHT": {
-          "visible": true,
+          "visible": false,
           "colorField": "x",
           "colorMode": "colormap",
           "colorMap": "turbo"
         },
         "/pose": {
+          "visible": true
+        },
+        "/markers/gt_heading": {
+          "visible": false
+        },
+        "/markers/track_line": {
+          "visible": false
+        },
+        "/markers/velArrow": {
+          "visible": true
+        },
+        "/markers/veloX": {
+          "visible": false
+        },
+        "/markers/veloY": {
+          "visible": false
+        },
+        "/markers/annotationsID": {
           "visible": true
         }
       },
@@ -731,7 +753,8 @@
             0
           ],
           "order": 3,
-          "size": 140
+          "size": 140,
+          "frameId": "base_link"
         }
       },
       "publish": {
@@ -743,7 +766,8 @@
         "poseEstimateYDeviation": 0.5,
         "poseEstimateThetaDeviation": 0.26179939
       },
-      "imageMode": {}
+      "imageMode": {},
+      "followTf": "base_link"
     }
   },
   "globalVariables": {
@@ -780,6 +804,6 @@
     },
     "second": "3D!3jbt1lb",
     "direction": "row",
-    "splitPercentage": 42.765273311897104
+    "splitPercentage": 33.09957924263674
   }
 }

@@ -4,6 +4,7 @@ We have the following change categories:
 * 添加conert_raw2hzpkl_to_mcap.py脚本，用于完成原版streampetr对应的原版2hz pkl文件转化为mcap
 * 添加拉速度曲线的layout布局config
 * 添加convert_10hzpkl_to_mcap.py, 用于转换10hz的数据,但是只有2hz的标注(该pkl用于streampetr的10hz训练, 只监督关键帧, 10hzpkl的转换脚本会在另外的仓库中提及)
+* 添加4个pkl文件用于仓库demo数据, mini_10hz* 表示10hz的pkl数据, mini_nus*表示2hz的pkl数据(streampetr对应的原始数据)
 ### Fixes
 
 ### Refactoring

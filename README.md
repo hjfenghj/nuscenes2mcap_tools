@@ -1,27 +1,33 @@
 # Release Notes
-We have the following change categories:
+该分支有四个功能:
+1. convert_to_mcap_raw.py  -> 加载nuscenes数据集原始文件夹，转换mcap, 一个场景对应一个mcap(使用foxglove软件进行可视化), 内部包含地图，车道线，3D框等的全元素可视化, 可视化用raw_layout_config.json配置文件 
+2. convert_to_mcap_lite.py -> 剔除掉地图，车道线的可视化元素。另外加入heading, 速度箭头, 轨迹线, ID跳变，横/纵向速度大小(用于拉速度曲线)等可视化功能。可视化使用layoutWithVeloCruve_config.json配置文件
+3. convert_raw2hzpkl_to_mcap.py -> 加载原版streampetr对应的pkl文件，完成mcap转换。 可视化用raw_layout_config.json配置文件
+4. convert_10hzpkl_to_mcap.py -> 加载10hz pkl文件, 完成mcap转换。非关键帧没有对应的真值3D框。可视化用raw_layout_config.json配置文件
+四个功能均可以在foxglove实现自车系/世界系的可视化
 ### Improvements
-* 添加conert_raw2hzpkl_to_mcap.py脚本，用于完成原版streampetr对应的原版2hz pkl文件转化为mcap
-* 添加拉速度曲线的layout布局config
-* 添加convert_10hzpkl_to_mcap.py, 用于转换10hz的数据,但是只有2hz的标注(该pkl用于streampetr的10hz训练, 只监督关键帧, 10hzpkl的转换脚本会在另外的仓库中提及)
-* 添加4个pkl文件用于仓库demo数据, mini_10hz* 表示10hz的pkl数据, mini_nus*表示2hz的pkl数据(streampetr对应的原始数据)
-* 修改pkl加载路径，增强该仓库易用性
+
 ### Fixes
 
 ### Refactoring
 
 ### Testing
 
-### 待优化
-convert_10hzpkl_to_mcap.py中, 非关键帧时候GT框尽量把不要显示，使其自动删除
-
-
-
-
 
 
 ## WIP
 ---
+## 3.0
+### Improvements
+* 添加conert_raw2hzpkl_to_mcap.py脚本，用于完成原版streampetr对应的原版2hz pkl文件转化为mcap
+* 添加拉速度曲线的layout布局config
+* 添加convert_10hzpkl_to_mcap.py, 用于转换10hz的数据,但是只有2hz的标注(该pkl用于streampetr的10hz训练, 只监督关键帧, 10hzpkl的转换脚本会在另外的仓库中提及)
+* 添加4个pkl文件用于仓库demo数据, mini_10hz* 表示10hz的pkl数据, mini_nus*表示2hz的pkl数据(streampetr对应的原始数据)
+* 修改pkl加载路径，增强该仓库易用性
+### 待优化
+convert_10hzpkl_to_mcap.py中, 非关键帧时候GT框尽量把不要显示，使其自动删除
+
+
 ## 2.0
 ### Improvements
 * 添加轻量化脚本convert_to_mcap_lite.py, 仅转化2hz标注数据. 去除地图,车道线等元素

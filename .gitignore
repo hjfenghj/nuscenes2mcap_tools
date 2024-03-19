@@ -4,7 +4,8 @@
 .ipynb_checkpoints
 .Trash-*
 data
+output
 .DS_Store
 __pycache__
 *.mcap
-/data_link
+data_link

@@ -247,7 +247,7 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
 
             ############# 可视化各种marker ##############
             annsSceneUpdate           = SceneUpdate()
-            annsIdSceneUpdate       = SceneUpdate()
+            annsIdSceneUpdate         = SceneUpdate()
             annsVeloXSceneUpdate      = SceneUpdate()
             annsVeloYSceneUpdate      = SceneUpdate()
             annsVeloArrowSceneUpdate  = SceneUpdate()

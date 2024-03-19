@@ -4,5 +4,4 @@ set -euo pipefail
 
 docker build -t uto_nuscenes2mcap_tools .
 mkdir -p output
-mkdir -p data
 

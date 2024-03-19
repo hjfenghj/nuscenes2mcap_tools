@@ -318,7 +318,7 @@ def main():
 
     args = parser.parse_args()
 
-    pkl_file = os.path.join(args.data_dir, args.pklFileName)
+    pkl_file = os.path.join("pkl_files", args.pklFileName)
 
     nusc = NuScenes(version = args.dataset_name, dataroot = str(args.data_dir), verbose = True)
 

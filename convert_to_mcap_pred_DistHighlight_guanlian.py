@@ -729,11 +729,11 @@ def convert_all(output_dir, name, nusc, predJsonFile, DisthighlightJsonFile, gua
         idswInfos = json.load(fp)
 
     splits = create_splits_scenes()
-    # nusc.list_scenes()
+
     for scene in nusc.scene:
-        # 判断是否为val的场景,用于网络推理结果的可视化
+        # 判断是否为val的场景, 用于网络推理结果的可视化
         # 因此推理结果分为不同的分支 val train test等     
-        if scene['name'] not in splits['val']:
+        if scene['name'] not in splits['val']:    # 这里需要注意，以后的你，如果需要可视化val部分的结果，就需要去掉这个。另外也可以写成指定场景可视化，留给你做吧，加油
             continue
         scene_name = scene["name"]
         mcap_name = f"NuScenes-{name}-{scene_name}.mcap"

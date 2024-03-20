@@ -537,7 +537,12 @@
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/markers/veloX.entities[:]{id==\"bc38\"}.texts[0].text",
+          "value": "/markers/veloEgoX.entities[:]{id==\"bc38\"}.texts[0].text",
+          "enabled": true
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/markers/veloGlobalX.entities[:]{id==\"bc38\"}.texts[0].text",
           "enabled": true
         }
       ],
@@ -554,7 +559,12 @@
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/markers/veloY.entities[:]{id==\"bc38\"}.texts[0].text",
+          "value": "/markers/veloEgoY.entities[:]{id==\"bc38\"}.texts[0].text",
+          "enabled": true
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/markers/veloGlobalY.entities[:]{id==\"bc38\"}.texts[0].text",
           "enabled": true
         }
       ],
@@ -570,13 +580,13 @@
     "3D!3jbt1lb": {
       "cameraState": {
         "perspective": false,
-        "distance": 181.51602325642244,
+        "distance": 79.89004262275674,
         "phi": 42.66239496066665,
-        "thetaOffset": 95.49149782297786,
+        "thetaOffset": 91.21596338117676,
         "targetOffset": [
-          6.63112257577713,
-          -13.817923267282703,
-          7.106356288999862e-14
+          15.018919384526468,
+          -10.34624234420764,
+          7.184088321863545e-14
         ],
         "target": [
           0,
@@ -748,7 +758,7 @@
           "visible": true
         },
         "/markers/gt_heading": {
-          "visible": false
+          "visible": true
         },
         "/markers/track_line": {
           "visible": false
@@ -764,6 +774,9 @@
         },
         "/markers/annotationsID": {
           "visible": true
+        },
+        "/markers/velGlobalArrow": {
+          "visible": false
         }
       },
       "layers": {
@@ -848,6 +861,6 @@
     },
     "second": "3D!3jbt1lb",
     "direction": "row",
-    "splitPercentage": 43.59925788497217
+    "splitPercentage": 33.79457158062799
   }
 }

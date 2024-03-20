@@ -248,9 +248,11 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
             ############# 可视化各种marker ##############
             annsSceneUpdate           = SceneUpdate()
             annsIdSceneUpdate         = SceneUpdate()
-            annsVeloXSceneUpdate      = SceneUpdate()
-            annsVeloYSceneUpdate      = SceneUpdate()
+            annsVeloEgoXSceneUpdate      = SceneUpdate()
+            annsVeloEgoYSceneUpdate      = SceneUpdate()
             annsVeloArrowSceneUpdate  = SceneUpdate()
+            annsVeloGlobalXSceneUpdate      = SceneUpdate()
+            annsVeloGlobalYSceneUpdate      = SceneUpdate()
             annsHeadingSceneUpdate    = SceneUpdate()
             trackSceneUpdate          = SceneUpdate()
 
@@ -333,55 +335,55 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
                 annsIdTexts.color.a            = 1
                 annsIdTexts.text               = annId
 
-                ################ 发布纵向速度信息marker, 用于拉速度曲线使用 ################
-                annsVeloXDeleteEntity        = annsVeloXSceneUpdate.deletions.add()
-                annsVeloXDeleteEntity.type   = 1
+                ################ 发布自车系纵向速度信息marker, 用于拉速度曲线使用 ################
+                annsVeloEgoXDeleteEntity        = annsVeloEgoXSceneUpdate.deletions.add()
+                annsVeloEgoXDeleteEntity.type   = 1
 
-                annsVeloXDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+                annsVeloEgoXDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
 
-                annsVeloXEntity              = annsVeloXSceneUpdate.entities.add()
-                annsVeloXEntity.frame_id     = "base_link"
+                annsVeloEgoXEntity              = annsVeloEgoXSceneUpdate.entities.add()
+                annsVeloEgoXEntity.frame_id     = "base_link"
 
-                annsVeloXEntity.timestamp.FromNanoseconds(stamp.to_nsec())
-                annsVeloXEntity.id           = annId
-                annsVeloXEntityTexts         = annsVeloXEntity.texts.add()
-                annsVeloXEntity.frame_locked = True
+                annsVeloEgoXEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                annsVeloEgoXEntity.id           = annId
+                annsVeloEgoXEntity.frame_locked = True
 
-                annsVeloXEntityTexts.pose.position.x    = annCenterEgo[0]
-                annsVeloXEntityTexts.pose.position.y    = annCenterEgo[1]
-                annsVeloXEntityTexts.pose.position.z    = annCenterEgo[2]
-                annsVeloXEntityTexts.pose.orientation.w = annOrientEgo[0]
-                annsVeloXEntityTexts.pose.orientation.x = annOrientEgo[1]
-                annsVeloXEntityTexts.pose.orientation.y = annOrientEgo[2]
-                annsVeloXEntityTexts.pose.orientation.z = annOrientEgo[3]
-                annsVeloXEntityTexts.font_size          = 0.01
-                annsVeloXEntityTexts.text               = str(velo2dEgo[0])
+                annsVeloEgoXEntityTexts                    = annsVeloEgoXEntity.texts.add()
+                annsVeloEgoXEntityTexts.pose.position.x    = annCenterEgo[0]
+                annsVeloEgoXEntityTexts.pose.position.y    = annCenterEgo[1]
+                annsVeloEgoXEntityTexts.pose.position.z    = annCenterEgo[2]
+                annsVeloEgoXEntityTexts.pose.orientation.w = annOrientEgo[0]
+                annsVeloEgoXEntityTexts.pose.orientation.x = annOrientEgo[1]
+                annsVeloEgoXEntityTexts.pose.orientation.y = annOrientEgo[2]
+                annsVeloEgoXEntityTexts.pose.orientation.z = annOrientEgo[3]
+                annsVeloEgoXEntityTexts.font_size          = 0.01
+                annsVeloEgoXEntityTexts.text               = str(velo2dEgo[0])
 
-                ################ 发布横向速度信息marker, 用于拉速度曲线使用 ################
-                annsVeloYDeleteEntity        = annsVeloYSceneUpdate.deletions.add()
-                annsVeloYDeleteEntity.type   = 1
+                ################ 发布自车系横向速度信息marker, 用于拉速度曲线使用 ################
+                annsVeloEgoYDeleteEntity        = annsVeloEgoYSceneUpdate.deletions.add()
+                annsVeloEgoYDeleteEntity.type   = 1
 
-                annsVeloYDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+                annsVeloEgoYDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
 
-                annsVeloYEntity              = annsVeloYSceneUpdate.entities.add()
-                annsVeloYEntity.frame_id     = "base_link"
+                annsVeloEgoYEntity              = annsVeloEgoYSceneUpdate.entities.add()
+                annsVeloEgoYEntity.frame_id     = "base_link"
 
-                annsVeloYEntity.timestamp.FromNanoseconds(stamp.to_nsec())
-                annsVeloYEntity.id           = annId
-                annsVeloYEntityTexts         = annsVeloYEntity.texts.add()
-                annsVeloYEntity.frame_locked = True
+                annsVeloEgoYEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                annsVeloEgoYEntity.id           = annId
+                annsVeloEgoYEntity.frame_locked = True
        
-                annsVeloYEntityTexts.pose.position.x    = annCenterEgo[0]
-                annsVeloYEntityTexts.pose.position.y    = annCenterEgo[1]
-                annsVeloYEntityTexts.pose.position.z    = annCenterEgo[2]
-                annsVeloYEntityTexts.pose.orientation.w = annOrientEgo[0]
-                annsVeloYEntityTexts.pose.orientation.x = annOrientEgo[1]
-                annsVeloYEntityTexts.pose.orientation.y = annOrientEgo[2]
-                annsVeloYEntityTexts.pose.orientation.z = annOrientEgo[3]
-                annsVeloYEntityTexts.font_size          = 0.01
-                annsVeloYEntityTexts.text               = str(velo2dEgo[1])
+                annsVeloEgoYEntityTexts                    = annsVeloEgoYEntity.texts.add()
+                annsVeloEgoYEntityTexts.pose.position.x    = annCenterEgo[0]
+                annsVeloEgoYEntityTexts.pose.position.y    = annCenterEgo[1]
+                annsVeloEgoYEntityTexts.pose.position.z    = annCenterEgo[2]
+                annsVeloEgoYEntityTexts.pose.orientation.w = annOrientEgo[0]
+                annsVeloEgoYEntityTexts.pose.orientation.x = annOrientEgo[1]
+                annsVeloEgoYEntityTexts.pose.orientation.y = annOrientEgo[2]
+                annsVeloEgoYEntityTexts.pose.orientation.z = annOrientEgo[3]
+                annsVeloEgoYEntityTexts.font_size          = 0.01
+                annsVeloEgoYEntityTexts.text               = str(velo2dEgo[1])
 
-                ################### 发布速度箭头marker, 用于观察车辆行驶方向 ##################
+                ################### 发布速度箭头marker, 用于观察车辆行驶方向(mcap中基于tf可以自动转换map和ego) ##################
                 annsVeloArrowDeleteEntity      = annsVeloArrowSceneUpdate.deletions.add()
                 annsVeloArrowDeleteEntity.type = 1
 
@@ -410,6 +412,54 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
                     annsVeloArrowEntityLine.points.add(x = annCenterEgo[0] + velo2dEgo[0] / 6.0, y = annCenterEgo[1] + velo2dEgo[1] / 6.0, z = annCenterEgo[2]) 
                 else:
                     annsVeloArrowEntityLine.points.add(x = annCenterEgo[0] + velo2dEgo[0] * alpha, y = annCenterEgo[1] + velo2dEgo[1] * alpha, z = annCenterEgo[2]) 
+
+                ################ 发布世界系纵向速度信息marker, 用于拉速度曲线使用 ################
+                annsVeloGlobalXDeleteEntity        = annsVeloGlobalXSceneUpdate.deletions.add()
+                annsVeloGlobalXDeleteEntity.type   = 1
+
+                annsVeloGlobalXDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+
+                annsVeloGlobalXEntity              = annsVeloGlobalXSceneUpdate.entities.add()
+                annsVeloGlobalXEntity.frame_id     = "map"
+
+                annsVeloGlobalXEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                annsVeloGlobalXEntity.id           = annId
+                annsVeloGlobalXEntity.frame_locked = True
+
+                annsVeloGlobalXEntityTexts                    = annsVeloGlobalXEntity.texts.add()
+                annsVeloGlobalXEntityTexts.pose.position.x    = annCenterGlobal[0]
+                annsVeloGlobalXEntityTexts.pose.position.y    = annCenterGlobal[1]
+                annsVeloGlobalXEntityTexts.pose.position.z    = annCenterGlobal[2]
+                annsVeloGlobalXEntityTexts.pose.orientation.w = annOrientGlobal[0]
+                annsVeloGlobalXEntityTexts.pose.orientation.x = annOrientGlobal[1]
+                annsVeloGlobalXEntityTexts.pose.orientation.y = annOrientGlobal[2]
+                annsVeloGlobalXEntityTexts.pose.orientation.z = annOrientGlobal[3]
+                annsVeloGlobalXEntityTexts.font_size          = 0.01
+                annsVeloGlobalXEntityTexts.text               = str(velo2dGlobal[0])
+
+                ################ 发布世界系横向速度信息marker, 用于拉速度曲线使用 ################
+                annsVeloGlobalYDeleteEntity        = annsVeloGlobalYSceneUpdate.deletions.add()
+                annsVeloGlobalYDeleteEntity.type   = 1
+
+                annsVeloGlobalYDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+
+                annsVeloGlobalYEntity              = annsVeloGlobalYSceneUpdate.entities.add()
+                annsVeloGlobalYEntity.frame_id     = "map"
+
+                annsVeloGlobalYEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                annsVeloGlobalYEntity.id           = annId
+                annsVeloGlobalYEntity.frame_locked = True
+       
+                annsVeloGlobalYEntityTexts         = annsVeloGlobalYEntity.texts.add()
+                annsVeloGlobalYEntityTexts.pose.position.x    = annCenterGlobal[0]
+                annsVeloGlobalYEntityTexts.pose.position.y    = annCenterGlobal[1]
+                annsVeloGlobalYEntityTexts.pose.position.z    = annCenterGlobal[2]
+                annsVeloGlobalYEntityTexts.pose.orientation.w = annOrientGlobal[0]
+                annsVeloGlobalYEntityTexts.pose.orientation.x = annOrientGlobal[1]
+                annsVeloGlobalYEntityTexts.pose.orientation.y = annOrientGlobal[2]
+                annsVeloGlobalYEntityTexts.pose.orientation.z = annOrientGlobal[3]
+                annsVeloGlobalYEntityTexts.font_size          = 0.01
+                annsVeloGlobalYEntityTexts.text               = str(velo2dGlobal[1]) 
 
                 ################## 发布GT框heading信息, 用于观察车身朝向 ###############
                 annsHeadingDeleteEntity      = annsHeadingSceneUpdate.deletions.add()
@@ -442,9 +492,11 @@ def write_scene_to_mcap(nusc: NuScenes, nusc_can: NuScenesCanBus, scene, filepat
 
             protobuf_writer.write_message("/markers/annotations", annsSceneUpdate, stamp.to_nsec())
             protobuf_writer.write_message("/markers/annotationsID", annsIdSceneUpdate, stamp.to_nsec())
-            protobuf_writer.write_message("/markers/veloX", annsVeloXSceneUpdate, stamp.to_nsec()) 
-            protobuf_writer.write_message("/markers/veloY", annsVeloYSceneUpdate, stamp.to_nsec())
+            protobuf_writer.write_message("/markers/veloEgoX", annsVeloEgoXSceneUpdate, stamp.to_nsec()) 
+            protobuf_writer.write_message("/markers/veloEgoY", annsVeloEgoYSceneUpdate, stamp.to_nsec())
             protobuf_writer.write_message("/markers/velArrow", annsVeloArrowSceneUpdate, stamp.to_nsec()) 
+            protobuf_writer.write_message("/markers/veloGlobalX", annsVeloGlobalXSceneUpdate, stamp.to_nsec()) 
+            protobuf_writer.write_message("/markers/veloGlobalY", annsVeloGlobalYSceneUpdate, stamp.to_nsec())
             protobuf_writer.write_message("/markers/gt_heading", annsHeadingSceneUpdate, stamp.to_nsec()) 
 
             #################### 发布轨迹线和帧真值ID跳变 ##############

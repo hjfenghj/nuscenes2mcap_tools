@@ -5,7 +5,12 @@
 3. convert_raw2hzpkl_to_mcap.py -> 加载原版streampetr对应的pkl文件，完成mcap转换。 可视化用raw_layout_config.json配置文件
 4. convert_10hzpkl_to_mcap.py -> 加载10hz pkl文件, 完成mcap转换。非关键帧没有对应的真值3D框。可视化用raw_layout_config.json配置文件
 四个功能均可以在foxglove实现自车系/世界系的可视化
+
+
 ### Improvements
+* 增加世界系速度值话题发布, 用于观察世界系下的横纵向速度
+* layout配置文件中新增世界系，自车系下速度曲线设置
+
 
 ### Fixes
 

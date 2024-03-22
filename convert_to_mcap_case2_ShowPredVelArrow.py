@@ -247,33 +247,35 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preRes, caseInfos, us
             pose_in_frame.pose.orientation.w = 1
             protobuf_writer.write_message("/pose", pose_in_frame, stamp.to_nsec())
 
-            # publish 
-            gtAnnSceneUpdate = SceneUpdate()
-            gtVeloXSceneUpdate = SceneUpdate()
-            gtVeloYSceneUpdate = SceneUpdate()
-            gtHeadingSceneUpdate = SceneUpdate()
-
             # 网络baseline版本
             basePreAnnSceneUpdate = SceneUpdate()              # cube
-            basePreIdSceneUpdate = SceneUpdate()         # 预测目标的id
             basePreVeloEgoXSceneUpdate = SceneUpdate()     # 预测目标在自车系旋转下vx
             basePreVeloEgoYSceneUpdate = SceneUpdate()     # 预测目标在自车系旋转下vy
-
             basePreVeloGlobalXSceneUpdate = SceneUpdate()     # 预测目标在世界系旋转下vx
             basePreVeloGlobalYSceneUpdate = SceneUpdate()     # 预测目标在世界系旋转下vy
-
             basePreVeloArrowSceneUpdate = SceneUpdate()  # 预测目标速度箭头
             basePreHeadingSceneUpdate = SceneUpdate()    # 预测目标的heading
-            basePreIdSceneUpdate = SceneUpdate()
+            basePreIdSceneUpdate = SceneUpdate()         # 预测目标的id
 
+            # 网络迭代版本
             preAnnSceneUpdate = SceneUpdate()         
-            preIdSceneUpdate = SceneUpdate()
             preVeloEgoXSceneUpdate = SceneUpdate()
             preVeloEgoYSceneUpdate = SceneUpdate()
             preVeloGlobalXSceneUpdate = SceneUpdate()
             preVeloGlobalYSceneUpdate = SceneUpdate()
             preVeloArrowSceneUpdate = SceneUpdate() 
             preHeadingSceneUpdate = SceneUpdate() 
+            preIdSceneUpdate = SceneUpdate()
+
+            # 真值 
+            gtAnnSceneUpdate = SceneUpdate()
+            gtVeloEgoXSceneUpdate = SceneUpdate()
+            gtVeloEgoYSceneUpdate = SceneUpdate()
+            gtVeloGlobalXSceneUpdate = SceneUpdate()
+            gtVeloGlobalYSceneUpdate = SceneUpdate()
+            gtVeloArrowSceneUpdate = SceneUpdate() 
+            gtHeadingSceneUpdate = SceneUpdate()
+            gtIdSceneUpdate = SceneUpdate()
 
             ###################################### 网络baseline版本 ############################
             for basePreann in basePreRes[cur_sample['token']]:
@@ -492,13 +494,13 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preRes, caseInfos, us
                 basePreIdTexts.font_size = 0.5
                 basePreIdTexts.text = basePreAnnId
 
-            protobuf_writer.write_message("/markers/basePreHeading", basePreHeadingSceneUpdate, stamp.to_nsec())
-            protobuf_writer.write_message("/markers/basePreArrow", basePreVeloArrowSceneUpdate, stamp.to_nsec())
+            protobuf_writer.write_message("/markers/basePreAnns", basePreAnnSceneUpdate, stamp.to_nsec()) 
             protobuf_writer.write_message("/markers/basePreVeloEgoX", basePreVeloEgoXSceneUpdate, stamp.to_nsec()) 
             protobuf_writer.write_message("/markers/basePreVeloEgoY", basePreVeloEgoYSceneUpdate, stamp.to_nsec())  
             protobuf_writer.write_message("/markers/basePreVeloGlobalX", basePreVeloGlobalXSceneUpdate, stamp.to_nsec()) 
             protobuf_writer.write_message("/markers/basePreVeloGlobalY", basePreVeloGlobalYSceneUpdate, stamp.to_nsec())  
-            protobuf_writer.write_message("/markers/basePreAnns", basePreAnnSceneUpdate, stamp.to_nsec())              
+            protobuf_writer.write_message("/markers/basePreArrow", basePreVeloArrowSceneUpdate, stamp.to_nsec()) 
+            protobuf_writer.write_message("/markers/basePreHeading", basePreHeadingSceneUpdate, stamp.to_nsec())     
             protobuf_writer.write_message("/markers/basePreId", basePreIdSceneUpdate, stamp.to_nsec())    
 
             #################### 迭代网络模型结果 ###############################
@@ -663,7 +665,7 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preRes, caseInfos, us
                 preVeloArrowLine.color.b = 0
                 preVeloArrowLine.color.a = 0.8
                 preVeloArrowLine.points.add(x = preAnnCenterEgo[0], y = preAnnCenterEgo[1], z = preAnnCenterEgo[2]) 
-                preVeloL2 = np.sqrt(velo2d[0]**2 + velo2d[1]**2)
+                preVeloL2 = np.sqrt(preAnnVelo2dEgo[0]**2 + preAnnVelo2dEgo[1]**2)
                 if preVeloL2 >= 1: 
                     preVeloArrowLine.points.add(x = preAnnCenterEgo[0] + preAnnVelo2dEgo[0]/preVeloL2 * 2, y = preAnnCenterEgo[1] + preAnnVelo2dEgo[1]/preVeloL2 * 2, z = preAnnCenterEgo[2]) 
                 else:
@@ -705,7 +707,7 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preRes, caseInfos, us
                 preIdEntity = preIdSceneUpdate.entities.add()
                 preIdEntity.frame_id = "base_link"
                 preIdEntity.timestamp.FromNanoseconds(stamp.to_nsec())
-                preIdEntity.id = basePreAnnId
+                preIdEntity.id = preAnnId
                 preIdEntity.frame_locked = True
                 
                 preIdTexts = preIdEntity.texts.add()
@@ -719,142 +721,247 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preRes, caseInfos, us
                 preIdTexts.font_size = 0.5
                 preIdTexts.text = preAnnId
 
-            protobuf_writer.write_message("/markers/preHeading", preHeadingSceneUpdate, stamp.to_nsec())
-            protobuf_writer.write_message("/markers/preArrow", preVeloArrowSceneUpdate, stamp.to_nsec())
+            protobuf_writer.write_message("/markers/preAnns", preAnnSceneUpdate, stamp.to_nsec()) 
             protobuf_writer.write_message("/markers/preVeloEgoX", preVeloEgoXSceneUpdate, stamp.to_nsec()) 
             protobuf_writer.write_message("/markers/preVeloEgoY", preVeloEgoYSceneUpdate, stamp.to_nsec())  
             protobuf_writer.write_message("/markers/preVeloGlobalX", preVeloGlobalXSceneUpdate, stamp.to_nsec()) 
             protobuf_writer.write_message("/markers/preVeloGlobalY", preVeloGlobalYSceneUpdate, stamp.to_nsec())  
-            protobuf_writer.write_message("/markers/preAnns", preAnnSceneUpdate, stamp.to_nsec())              
+            protobuf_writer.write_message("/markers/preArrow", preVeloArrowSceneUpdate, stamp.to_nsec())
+            protobuf_writer.write_message("/markers/preHeading", preHeadingSceneUpdate, stamp.to_nsec())
             protobuf_writer.write_message("/markers/preId", preIdSceneUpdate, stamp.to_nsec())                
 
-
             ######################### GT真值信息 ##################################
-            for annotation_id in cur_sample["anns"]:
+            for gtAnnToken in cur_sample["anns"]:
+
+                gtAnn = nusc.get("sample_annotation", gtAnnToken)
+                gtId = gtAnn["instance_token"][:4]
+
+                ################# 计算真值框在世界系/自车系下速度值(范数不变, 仅仅是自车系下的绝对速度的横纵分解) ##################
                 # gt_anns global velo 
-                velo2d = nusc.box_velocity(annotation_id)[:2]                  # narray
+                gtAnnVelo2dGlobal = nusc.box_velocity(gtAnnToken)[:2]                  # narray
                 # convert velo from global to ego
-                velo = np.array([*velo2d,0.0])
-                velo = velo @ np.linalg.inv(e2g_r_mat).T
-                velo2d = velo[:2]
+                gtAnnVelo3dGlobal = np.array([*gtAnnVelo2dGlobal, 0.0])
+                gtAnnVelo3dEgo = gtAnnVelo3dGlobal @ np.linalg.inv(ego2GlobalRotMat).T
+                gtAnnVelo2dEgo = gtAnnVelo3dEgo[:2]
 
-                ann = nusc.get("sample_annotation", annotation_id)
-                marker_id_gt = ann["instance_token"][:4]
-                c = np.array(nusc.explorer.get_color(ann["category_name"])) / 255.0
-                
-                delete_entity_all = scene_update_gt.deletions.add()
-                delete_entity_all.type = 1
-                delete_entity_all.timestamp.FromNanoseconds(stamp.to_nsec() + 50)                
-                entity = scene_update_gt.entities.add()
-                entity.frame_id = "base_link"
-                entity.timestamp.FromNanoseconds(stamp.to_nsec())
-                entity.id = marker_id_gt   # 为了拉曲线输入id比较方便
-                # entity.id = ann["instance_token"]                
-                entity.frame_locked = True
-                metadata = entity.metadata.add()
-                metadata.key = "category"
-                metadata.value = ann["category_name"]
-                cube = entity.cubes.add()
-                cube.size.x = ann["size"][1]
-                cube.size.y = ann["size"][0]
-                cube.size.z = ann["size"][2]
-                if use_case and marker_id_gt in case_infos[scene_name]:
-                    cube.color.r = 1
-                    cube.color.g = 0
-                    cube.color.b = 0
-                    cube.color.a = 0.3
-                else:
-                    cube.color.r = 0
-                    cube.color.g = 1
-                    cube.color.b = 0
-                    cube.color.a = 0.3 
-
+                ################ 计算真值框世界系/自车系下的位姿 ####################
                 # conver box from global to ego
-                ann_center = np.array([ann["translation"][0], ann["translation"][1], ann["translation"][2]])
+                gtAnnCenterGlobal = np.array([gtAnn["translation"][0], gtAnn["translation"][1], gtAnn["translation"][2]])
                 # conver ann_centerfrom global to ego
-                ann_center = np.dot(np.linalg.inv(e2g_r_mat), ann_center-np.array(e2g_t))
-                ann_orientation = np.array([ann["rotation"][0], ann["rotation"][1], ann["rotation"][2], ann["rotation"][3]])
-                quaternion = Quaternion(matrix = np.linalg.inv(e2g_r_mat))
-                ann_orientation = quaternion * ann_orientation
+                gtAnnCenterEgo = np.dot(np.linalg.inv(ego2GlobalRotMat), gtAnnCenterGlobal - np.array(ego2GlobalTran))
+                gtAnnOrientationGlobal = np.array([gtAnn["rotation"][0], gtAnn["rotation"][1], gtAnn["rotation"][2], gtAnn["rotation"][3]])
+                gtQuatGlobal2Ego = Quaternion(matrix = np.linalg.inv(ego2GlobalRotMat))
+                gtAnnOrientationEgo = gtQuatGlobal2Ego * gtAnnOrientationGlobal
 
-                cube.pose.position.x = ann_center[0]
-                cube.pose.position.y = ann_center[1]
-                cube.pose.position.z = ann_center[2]
-                cube.pose.orientation.w = ann_orientation[0]
-                cube.pose.orientation.x = ann_orientation[1]
-                cube.pose.orientation.y = ann_orientation[2]
-                cube.pose.orientation.z = ann_orientation[3]
+                ################# 发布真值框位置信息 #############################
+                gtAnnDeleteEntity = gtAnnSceneUpdate.deletions.add()
+                gtAnnDeleteEntity.type = 1
+                gtAnnDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 50)    
 
-                delete_entity_all_velo_x = gt_velo_x_scene_update.deletions.add()
-                delete_entity_all_velo_x.type = 1
-                delete_entity_all_velo_x.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
-                entity_velo_x = gt_velo_x_scene_update.entities.add()
-                entity_velo_x.frame_id = "base_link"
-                entity_velo_x.timestamp.FromNanoseconds(stamp.to_nsec())
-                entity_velo_x.id = marker_id_gt
-                entity_velo_x.frame_locked = True
-                texts_velo_x = entity_velo_x.texts.add()
-                texts_velo_x.pose.position.x = ann_center[0]
-                texts_velo_x.pose.position.y = ann_center[1]
-                texts_velo_x.pose.position.z = ann_center[2]
-                texts_velo_x.pose.orientation.w = ann_orientation[0]
-                texts_velo_x.pose.orientation.x = ann_orientation[1]
-                texts_velo_x.pose.orientation.y = ann_orientation[2]
-                texts_velo_x.pose.orientation.z = ann_orientation[3]
-                texts_velo_x.font_size = 0.01
-                texts_velo_x.text = str(velo2d[0])
+                gtAnnEntity = gtAnnSceneUpdate.entities.add()
+                gtAnnEntity.frame_id = "base_link"
+                gtAnnEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                gtAnnEntity.id = gtId   # 为了拉曲线输入id比较方便              
+                gtAnnEntity.frame_locked = True
 
-                delete_entity_all_velo_y = gt_velo_y_scene_update.deletions.add()
-                delete_entity_all_velo_y.type = 1
-                delete_entity_all_velo_y.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
-                entity_velo_y = gt_velo_y_scene_update.entities.add()
-                entity_velo_y.frame_id = "base_link"
-                entity_velo_y.timestamp.FromNanoseconds(stamp.to_nsec())
-                entity_velo_y.id = marker_id_gt
-                entity_velo_y.frame_locked = True
-                texts_velo_y = entity_velo_y.texts.add()
-                texts_velo_y.pose.position.x = ann_center[0]
-                texts_velo_y.pose.position.y = ann_center[1]
-                texts_velo_y.pose.position.z = ann_center[2]
-                texts_velo_y.pose.orientation.w = ann_orientation[0]
-                texts_velo_y.pose.orientation.x = ann_orientation[1]
-                texts_velo_y.pose.orientation.y = ann_orientation[2]
-                texts_velo_y.pose.orientation.z = ann_orientation[3]
-                texts_velo_y.font_size = 0.01
-                texts_velo_y.text = str(velo2d[1])
+                gtAnnMetadata = gtAnnEntity.metadata.add()
+                gtAnnMetadata.key = "category"
+                gtAnnMetadata.value = gtAnn["category_name"]
+
+                gtAnnCube = gtAnnEntity.cubes.add()
+                gtAnnCube.size.x = gtAnn["size"][1]
+                gtAnnCube.size.y = gtAnn["size"][0]
+                gtAnnCube.size.z = gtAnn["size"][2]
+                if use_case and gtId in caseInfos[scene_name]:  # 可以高亮要观察的case目标, 比较清晰的观察到
+                    gtAnnCube.color.r = 1
+                    gtAnnCube.color.g = 0
+                    gtAnnCube.color.b = 0
+                    gtAnnCube.color.a = 0.3
+                else:
+                    gtAnnCube.color.r = 0
+                    gtAnnCube.color.g = 1
+                    gtAnnCube.color.b = 0
+                    gtAnnCube.color.a = 0.3 
+
+                gtAnnCube.pose.position.x = gtAnnCenterEgo[0]
+                gtAnnCube.pose.position.y = gtAnnCenterEgo[1]
+                gtAnnCube.pose.position.z = gtAnnCenterEgo[2]
+                gtAnnCube.pose.orientation.w = gtAnnOrientationEgo[0]
+                gtAnnCube.pose.orientation.x = gtAnnOrientationEgo[1]
+                gtAnnCube.pose.orientation.y = gtAnnOrientationEgo[2]
+                gtAnnCube.pose.orientation.z = gtAnnOrientationEgo[3]
+
+                ################# 发布真值框自车系下纵向速度 #############################
+                gtVeloEgoXDeleteEntity = gtVeloEgoXSceneUpdate.deletions.add()
+                gtVeloEgoXDeleteEntity.type = 1
+                gtVeloEgoXDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+
+                gtVeloEgoXEntity = gtVeloEgoXSceneUpdate.entities.add()
+                gtVeloEgoXEntity.frame_id = "base_link"
+                gtVeloEgoXEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                gtVeloEgoXEntity.id = gtId
+                gtVeloEgoXEntity.frame_locked = True
+
+                gtVeloEgoXTexts = gtVeloEgoXEntity.texts.add()
+                gtVeloEgoXTexts.pose.position.x = gtAnnCenterEgo[0]
+                gtVeloEgoXTexts.pose.position.y = gtAnnCenterEgo[1]
+                gtVeloEgoXTexts.pose.position.z = gtAnnCenterEgo[2]
+                gtVeloEgoXTexts.pose.orientation.w = gtAnnOrientationEgo[0]
+                gtVeloEgoXTexts.pose.orientation.x = gtAnnOrientationEgo[1]
+                gtVeloEgoXTexts.pose.orientation.y = gtAnnOrientationEgo[2]
+                gtVeloEgoXTexts.pose.orientation.z = gtAnnOrientationEgo[3]
+                gtVeloEgoXTexts.font_size = 0.01
+                gtVeloEgoXTexts.text = str(gtAnnVelo2dEgo[0])
+
+                ################# 发布真值框自车系下横向速度 #############################
+                gtVeloEgoYDeleteEntity = gtVeloEgoYSceneUpdate.deletions.add()
+                gtVeloEgoYDeleteEntity.type = 1
+                gtVeloEgoYDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+
+                gtVeloEgoYEntity = gtVeloEgoYSceneUpdate.entities.add()
+                gtVeloEgoYEntity.frame_id = "base_link"
+                gtVeloEgoYEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                gtVeloEgoYEntity.id = gtId
+                gtVeloEgoYEntity.frame_locked = True
+
+                gtVeloEgoYTexts = gtVeloEgoYEntity.texts.add()
+                gtVeloEgoYTexts.pose.position.x = gtAnnCenterEgo[0]
+                gtVeloEgoYTexts.pose.position.y = gtAnnCenterEgo[1]
+                gtVeloEgoYTexts.pose.position.z = gtAnnCenterEgo[2]
+                gtVeloEgoYTexts.pose.orientation.w = gtAnnOrientationEgo[0]
+                gtVeloEgoYTexts.pose.orientation.x = gtAnnOrientationEgo[1]
+                gtVeloEgoYTexts.pose.orientation.y = gtAnnOrientationEgo[2]
+                gtVeloEgoYTexts.pose.orientation.z = gtAnnOrientationEgo[3]
+                gtVeloEgoYTexts.font_size = 0.01
+                gtVeloEgoYTexts.text = str(gtAnnVelo2dEgo[1])
+
+                ################# 发布真值框世界系下纵向速度 #############################
+                gtVeloGlobalXDeleteEntity = gtVeloGlobalXSceneUpdate.deletions.add()
+                gtVeloGlobalXDeleteEntity.type = 1
+                gtVeloGlobalXDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+
+                gtVeloGlobalXEntity = gtVeloGlobalXSceneUpdate.entities.add()
+                gtVeloGlobalXEntity.frame_id = "map"
+                gtVeloGlobalXEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                gtVeloGlobalXEntity.id = gtId
+                gtVeloGlobalXEntity.frame_locked = True
+
+                gtVeloGlobalXTexts = gtVeloGlobalXEntity.texts.add()
+                gtVeloGlobalXTexts.pose.position.x = gtAnnCenterGlobal[0]
+                gtVeloGlobalXTexts.pose.position.y = gtAnnCenterGlobal[1]
+                gtVeloGlobalXTexts.pose.position.z = gtAnnCenterGlobal[2]
+                gtVeloGlobalXTexts.pose.orientation.w = gtAnnOrientationGlobal[0]
+                gtVeloGlobalXTexts.pose.orientation.x = gtAnnOrientationGlobal[1]
+                gtVeloGlobalXTexts.pose.orientation.y = gtAnnOrientationGlobal[2]
+                gtVeloGlobalXTexts.pose.orientation.z = gtAnnOrientationGlobal[3]
+                gtVeloGlobalXTexts.font_size = 0.01
+                gtVeloGlobalXTexts.text = str(gtAnnVelo2dGlobal[0])
+
+                ################# 发布真值框世界系下横向速度 #############################
+                gtVeloGlobalYDeleteEntity = gtVeloGlobalYSceneUpdate.deletions.add()
+                gtVeloGlobalYDeleteEntity.type = 1
+                gtVeloGlobalYDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+
+                gtVeloGlobalYEntity = gtVeloGlobalYSceneUpdate.entities.add()
+                gtVeloGlobalYEntity.frame_id = "map"
+                gtVeloGlobalYEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                gtVeloGlobalYEntity.id = gtId
+                gtVeloGlobalYEntity.frame_locked = True
+
+                gtVeloGlobalYTexts = gtVeloGlobalYEntity.texts.add()
+                gtVeloGlobalYTexts.pose.position.x = gtAnnCenterGlobal[0]
+                gtVeloGlobalYTexts.pose.position.y = gtAnnCenterGlobal[1]
+                gtVeloGlobalYTexts.pose.position.z = gtAnnCenterGlobal[2]
+                gtVeloGlobalYTexts.pose.orientation.w = gtAnnOrientationGlobal[0]
+                gtVeloGlobalYTexts.pose.orientation.x = gtAnnOrientationGlobal[1]
+                gtVeloGlobalYTexts.pose.orientation.y = gtAnnOrientationGlobal[2]
+                gtVeloGlobalYTexts.pose.orientation.z = gtAnnOrientationGlobal[3]
+                gtVeloGlobalYTexts.font_size = 0.01
+                gtVeloGlobalYTexts.text = str(gtAnnVelo2dGlobal[1])
+
+                ###################### 发布真值框速度箭头信息(可以跟随foxglove选定的基坐标系完成转化) ###################
+                gtVeloArrowDeleteEntity = gtVeloArrowSceneUpdate.deletions.add()
+                gtVeloArrowDeleteEntity.type = 1
+                gtVeloArrowDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
+
+                gtVeloArrowEntity = gtVeloArrowSceneUpdate.entities.add()
+                gtVeloArrowEntity.id = gtId
+                gtVeloArrowEntity.frame_id = "base_link"
+                gtVeloArrowEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                gtVeloArrowEntity.frame_locked = True
+
+                gtVeloArrowLine = gtVeloArrowEntity.lines.add()
+                gtVeloArrowLine.type = 0
+                gtVeloArrowLine.thickness = 0.1
+                gtVeloArrowLine.color.r = 0
+                gtVeloArrowLine.color.g = 0
+                gtVeloArrowLine.color.b = 0
+                gtVeloArrowLine.color.a = 0.8
+                gtVeloArrowLine.points.add(x = gtAnnCenterEgo[0], y = gtAnnCenterEgo[1], z = gtAnnCenterEgo[2]) 
+                gtVeloL2 = np.sqrt(gtAnnVelo2dEgo[0]**2 + gtAnnVelo2dEgo[1]**2)
+                if gtVeloL2 >= 1: 
+                    gtVeloArrowLine.points.add(x = gtAnnCenterEgo[0] + gtAnnVelo2dEgo[0]/gtVeloL2 * 2, y = gtAnnCenterEgo[1] + gtAnnVelo2dEgo[1]/gtVeloL2 * 2, z = gtAnnCenterEgo[2]) 
+                else:
+                    gtVeloArrowLine.points.add(x = gtAnnCenterEgo[0] + gtAnnVelo2dEgo[0], y = gtAnnCenterEgo[1] + gtAnnVelo2dEgo[1], z = gtAnnCenterEgo[2]) 
                 
-                # 真值目标heading
-                gt_heading_entity = gt_heading_scene_update.entities.add()
-                gt_heading_delete_entity_all = gt_heading_scene_update.deletions.add()
-                gt_heading_delete_entity_all.type = 1
-                gt_heading_delete_entity_all.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
-                gt_heading_entity.id = marker_id_gt
-                gt_heading_entity.frame_id = "base_link"
-                gt_heading_entity.timestamp.FromNanoseconds(stamp.to_nsec())
-                gt_heading_entity.frame_locked = True
-                Line_heading = gt_heading_entity.arrows.add()
-                  
-                Line_heading.color.r = 255 / 255.0
-                Line_heading.color.g = 211 / 255.0
-                Line_heading.color.b = 155 / 255.0
-                Line_heading.color.a = 0.5
-                Line_heading.pose.position.x = ann_center[0]
-                Line_heading.pose.position.y = ann_center[1]
-                Line_heading.pose.position.z = ann_center[2] + ann["size"][2]/2
-                Line_heading.pose.orientation.w = ann_orientation[0]
-                Line_heading.pose.orientation.x = ann_orientation[1]
-                Line_heading.pose.orientation.y = ann_orientation[2]
-                Line_heading.pose.orientation.z = ann_orientation[3]
-                Line_heading.shaft_length = ann["size"][1]/2
-                Line_heading.shaft_diameter = 0.07
-                Line_heading.head_length = 0.01
-                Line_heading.head_diameter = 0.01
+                ################# 发布真值框框heading信息 #############################
+                gtHeadingDeleteEntity = gtHeadingSceneUpdate.deletions.add()
+                gtHeadingDeleteEntity.type = 1
+                gtHeadingDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
 
-            protobuf_writer.write_message("/markers/gt_heading", gt_heading_scene_update, stamp.to_nsec())                 
-            protobuf_writer.write_message("/markers/gt_velo_x", gt_velo_x_scene_update, stamp.to_nsec()) 
-            protobuf_writer.write_message("/markers/gt_velo_y", gt_velo_y_scene_update, stamp.to_nsec())       
-            protobuf_writer.write_message("/markers/gt_annotations", scene_update_gt, stamp.to_nsec())
-            ########################################
+                gtHeadingEntity = gtHeadingSceneUpdate.entities.add()
+                gtHeadingEntity.id = gtId
+                gtHeadingEntity.frame_id = "map"
+                gtHeadingEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                gtHeadingEntity.frame_locked = True
+                gtHeadingLine = gtHeadingEntity.arrows.add()
+                  
+                gtHeadingLine.color.r = 255 / 255.0
+                gtHeadingLine.color.g = 211 / 255.0
+                gtHeadingLine.color.b = 155 / 255.0
+                gtHeadingLine.color.a = 0.5
+                gtHeadingLine.pose.position.x = gtAnnCenterGlobal[0]
+                gtHeadingLine.pose.position.y = gtAnnCenterGlobal[1]
+                gtHeadingLine.pose.position.z = gtAnnCenterGlobal[2] + gtAnn["size"][2]/2
+                gtHeadingLine.pose.orientation.w = gtAnnOrientationGlobal[0]
+                gtHeadingLine.pose.orientation.x = gtAnnOrientationGlobal[1]
+                gtHeadingLine.pose.orientation.y = gtAnnOrientationGlobal[2]
+                gtHeadingLine.pose.orientation.z = gtAnnOrientationGlobal[3]
+                gtHeadingLine.shaft_length = gtAnn["size"][1]/2
+                gtHeadingLine.shaft_diameter = 0.07
+                gtHeadingLine.head_length = 0.01
+                gtHeadingLine.head_diameter = 0.01
+
+                ################# 发布真值框目标ID信息  #############
+                gtIdDeleteEntity = gtIdSceneUpdate.deletions.add()
+                gtIdDeleteEntity.type = 1
+                gtIdDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
+
+                gtIdEntity = gtIdSceneUpdate.entities.add()
+                gtIdEntity.frame_id = "base_link"
+                gtIdEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                gtIdEntity.id = gtId
+                gtIdEntity.frame_locked = True
+                
+                gtIdTexts = preIdEntity.texts.add()
+                gtIdTexts.pose.position.x = gtAnnCenterEgo[0]
+                gtIdTexts.pose.position.y = gtAnnCenterEgo[1]
+                gtIdTexts.pose.position.z = gtAnnCenterEgo[2]
+                gtIdTexts.pose.orientation.w = gtAnnOrientationEgo[0]
+                gtIdTexts.pose.orientation.x = gtAnnOrientationEgo[1]
+                gtIdTexts.pose.orientation.y = gtAnnOrientationEgo[2]
+                gtIdTexts.pose.orientation.z = gtAnnOrientationEgo[3]
+                gtIdTexts.font_size = 0.5
+                gtIdTexts.text = gtId
+
+            protobuf_writer.write_message("/markers/gtHeading", gtHeadingSceneUpdate, stamp.to_nsec())
+            protobuf_writer.write_message("/markers/gtVeloEgoX", gtVeloEgoXSceneUpdate, stamp.to_nsec()) 
+            protobuf_writer.write_message("/markers/gtVeloEgoY", gtVeloEgoYSceneUpdate, stamp.to_nsec())  
+            protobuf_writer.write_message("/markers/gtVeloGlobalX", gtVeloGlobalXSceneUpdate, stamp.to_nsec()) 
+            protobuf_writer.write_message("/markers/gtVeloGlobalY", gtVeloGlobalYSceneUpdate, stamp.to_nsec())  
+            protobuf_writer.write_message("/markers/gtArrow", gtVeloArrowSceneUpdate, stamp.to_nsec())
+            protobuf_writer.write_message("/markers/gtAnns", gtAnnSceneUpdate, stamp.to_nsec())              
+            protobuf_writer.write_message("/markers/gtId", gtIdSceneUpdate, stamp.to_nsec())      
 
             # publish /markers/car
             protobuf_writer.write_message("/markers/car", get_car_scene_update(stamp.to_nsec()), stamp.to_nsec())
@@ -909,8 +1016,8 @@ def main():
     root_injson = "./input_json"
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--result_json_name", "-p", default= "tracking_result.json", help="path to infer result")
-    parser.add_argument("--result_json_name2", default= "tracking_result2.json", help="path to infer result")
+    parser.add_argument("--result_json_name", "-p", default= "tracking_result_base.json", help="path to infer result")
+    parser.add_argument("--result_json_name2", default= "tracking_result_update.json", help="path to infer result")
     
     parser.add_argument("--case_json_name", type=str, default="case.json")
     parser.add_argument("--data-dir","-d",default="./data")

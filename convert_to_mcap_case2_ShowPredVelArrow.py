@@ -189,10 +189,9 @@ def get_num_sample_data(nusc: NuScenes, scene):
             sample_data = nusc.get("sample_data", sample_data["next"]) if sample_data["next"] != "" else None
     return num_sample_data
 
-def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preAnnsRes, caseInfos, use_case):
+def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preRes, caseInfos, use_case):
 
     scene_name = scene["name"]
-    log = nusc.get("log", scene["log_token"])
     data_path = Path(nusc.dataroot)
 
     cur_sample = nusc.get("sample", scene["first_sample_token"])
@@ -265,9 +264,10 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preAnnsRes, caseInfos
 
             basePreVeloArrowSceneUpdate = SceneUpdate()  # 预测目标速度箭头
             basePreHeadingSceneUpdate = SceneUpdate()    # 预测目标的heading
+            basePreIdSceneUpdate = SceneUpdate()
 
             preAnnSceneUpdate = SceneUpdate()         
-            preAnnIdSceneUpdate = SceneUpdate()
+            preIdSceneUpdate = SceneUpdate()
             preVeloEgoXSceneUpdate = SceneUpdate()
             preVeloEgoYSceneUpdate = SceneUpdate()
             preVeloGlobalXSceneUpdate = SceneUpdate()
@@ -277,13 +277,13 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preAnnsRes, caseInfos
 
             ###################################### 网络baseline版本 ############################
             for basePreann in basePreRes[cur_sample['token']]:
-                basePreId = None
+                basePreAnnId = None
                 if isinstance(basePreann["tracking_id"],int):
-                    basePreId = str(basePreann["tracking_id"])
+                    basePreAnnId = str(basePreann["tracking_id"])
                 elif basePreann["tracking_id"][0] == 't':
-                    basePreId = basePreann["tracking_id"][7:-1]
+                    basePreAnnId = basePreann["tracking_id"][7:-1]
                 else:
-                    basePreId = basePreann["tracking_id"]
+                    basePreAnnId = basePreann["tracking_id"]
 
                 ###################### 网络baseline版本预测框自车系/世界系位姿计算 #####################
                 # conver ann from global to ego
@@ -291,8 +291,8 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preAnnsRes, caseInfos
                 # conver ann_centerfrom global to ego
                 basePreAnnCenterEgo = np.dot(np.linalg.inv(ego2GlobalRotMat), basePreAnnCenterGlobal - np.array(ego2GlobalTran))
                 basePreAnnOrientationGlobal = np.array([basePreann["rotation"][0], basePreann["rotation"][1], basePreann["rotation"][2], basePreann["rotation"][3]])
-                baseAnnQuaternionGlobal2Ego = Quaternion(matrix = np.linalg.inv(ego2GlobalRotMat))
-                basePreAnnOrientationEgo = baseAnnQuaternionGlobal2Ego * basePreAnnOrientationGlobal
+                basePreQuaternionGlobal2Ego = Quaternion(matrix = np.linalg.inv(ego2GlobalRotMat))
+                basePreAnnOrientationEgo = basePreQuaternionGlobal2Ego * basePreAnnOrientationGlobal
 
                 ##################### 网络baseline版本预测框自车系/世界系横纵速度计算(范数不边) ##############
                 basePreAnnVelo2dGlobal = basePreann["velocity"][:2]
@@ -308,7 +308,7 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preAnnsRes, caseInfos
                 basePreAnnEntity = basePreAnnSceneUpdate.entities.add()
                 basePreAnnEntity.frame_id = "base_link"
                 basePreAnnEntity.timestamp.FromNanoseconds(stamp.to_nsec())
-                basePreAnnEntity.id = basePreId
+                basePreAnnEntity.id = basePreAnnId
                 basePreAnnEntity.frame_locked = True
 
                 basePreAnnCube = basePreAnnEntity.cubes.add()
@@ -336,7 +336,7 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preAnnsRes, caseInfos
                 basePreVeloEgoXEntity = basePreVeloEgoXSceneUpdate.entities.add()
                 basePreVeloEgoXEntity.frame_id = "base_link"
                 basePreVeloEgoXEntity.timestamp.FromNanoseconds(stamp.to_nsec())
-                basePreVeloEgoXEntity.id = basePreId
+                basePreVeloEgoXEntity.id = basePreAnnId
                 basePreVeloEgoXEntity.frame_locked = True
 
                 basePreVeloEgoXTexts = basePreVeloEgoXEntity.texts.add()
@@ -358,7 +358,7 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preAnnsRes, caseInfos
                 basePreVeloEgoYEntity = basePreVeloEgoYSceneUpdate.entities.add()
                 basePreVeloEgoYEntity.frame_id = "base_link"
                 basePreVeloEgoYEntity.timestamp.FromNanoseconds(stamp.to_nsec())
-                basePreVeloEgoYEntity.id = basePreId
+                basePreVeloEgoYEntity.id = basePreAnnId
                 basePreVeloEgoYEntity.frame_locked = True
 
                 basePreVeloEgoYTexts = basePreVeloEgoYEntity.texts.add()
@@ -380,7 +380,7 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preAnnsRes, caseInfos
                 basePreVeloGlobalXEntity = basePreVeloGlobalXSceneUpdate.entities.add()
                 basePreVeloGlobalXEntity.frame_id = "map"
                 basePreVeloGlobalXEntity.timestamp.FromNanoseconds(stamp.to_nsec())
-                basePreVeloGlobalXEntity.id = basePreId
+                basePreVeloGlobalXEntity.id = basePreAnnId
                 basePreVeloGlobalXEntity.frame_locked = True
 
                 basePreVeloGlobalXTexts = basePreVeloGlobalXEntity.texts.add()
@@ -403,7 +403,7 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preAnnsRes, caseInfos
                 basePreVeloGlobalYEntity = basePreVeloGlobalYSceneUpdate.entities.add()
                 basePreVeloGlobalYEntity.frame_id = "map"
                 basePreVeloGlobalYEntity.timestamp.FromNanoseconds(stamp.to_nsec())
-                basePreVeloGlobalYEntity.id = basePreId
+                basePreVeloGlobalYEntity.id = basePreAnnId
                 basePreVeloGlobalYEntity.frame_locked = True
 
                 basePreVeloGlobalYTexts = basePreVeloGlobalYEntity.texts.add()
@@ -423,7 +423,7 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preAnnsRes, caseInfos
                 basePreVeloArrowDeletEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
 
                 basePreVeloArrowEntity = basePreVeloArrowSceneUpdate.entities.add()
-                basePreVeloArrowEntity.id = basePreId
+                basePreVeloArrowEntity.id = basePreAnnId
                 basePreVeloArrowEntity.frame_id = "base_link"
                 basePreVeloArrowEntity.timestamp.FromNanoseconds(stamp.to_nsec())
                 basePreVeloArrowEntity.frame_locked = True
@@ -442,13 +442,13 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preAnnsRes, caseInfos
                     basePreVeloArrowLine.points.add(x = basePreAnnCenterEgo[0] + basePreAnnVelo2dEgo[0], y = basePreAnnCenterEgo[1] + basePreAnnVelo2dEgo[1], z = basePreAnnCenterEgo[2])        
 
 
-                ###################### 网络baseline版本预测框速度heading发布, 用于观察车辆的走向 ######################
+                ###################### 网络baseline版本预测框车身heading发布, 用于观察车辆的走向 ######################
                 basePreHeadingDeleteEntity = basePreHeadingSceneUpdate.deletions.add()
                 basePreHeadingDeleteEntity.type = 1
                 basePreHeadingDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
 
                 basePreHeadingEntity = basePreHeadingSceneUpdate.entities.add()
-                basePreHeadingEntity.id = basePreId
+                basePreHeadingEntity.id = basePreAnnId
                 basePreHeadingEntity.frame_id = "base_link"
                 basePreHeadingEntity.timestamp.FromNanoseconds(stamp.to_nsec())
                 basePreHeadingEntity.frame_locked = True
@@ -478,7 +478,7 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preAnnsRes, caseInfos
                 basePreIdEntity = basePreIdSceneUpdate.entities.add()
                 basePreIdEntity.frame_id = "base_link"
                 basePreIdEntity.timestamp.FromNanoseconds(stamp.to_nsec())
-                basePreIdEntity.id = basePreId
+                basePreIdEntity.id = basePreAnnId
                 basePreIdEntity.frame_locked = True
                 
                 basePreIdTexts = basePreIdEntity.texts.add()
@@ -490,7 +490,7 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preAnnsRes, caseInfos
                 basePreIdTexts.pose.orientation.y = basePreAnnOrientationEgo[2]
                 basePreIdTexts.pose.orientation.z = basePreAnnOrientationEgo[3]
                 basePreIdTexts.font_size = 0.5
-                basePreIdTexts.text = basePreId
+                basePreIdTexts.text = basePreAnnId
 
             protobuf_writer.write_message("/markers/basePreHeading", basePreHeadingSceneUpdate, stamp.to_nsec())
             protobuf_writer.write_message("/markers/basePreArrow", basePreVeloArrowSceneUpdate, stamp.to_nsec())
@@ -501,193 +501,235 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preAnnsRes, caseInfos
             protobuf_writer.write_message("/markers/basePreAnns", basePreAnnSceneUpdate, stamp.to_nsec())              
             protobuf_writer.write_message("/markers/basePreId", basePreIdSceneUpdate, stamp.to_nsec())    
 
-
-            #################### 迭代网络模型 ###############################
-            # 预测框的cube
-            for ann in PreRes[cur_sample['token']]:
-                obj_ID = None
-                if isinstance(ann["tracking_id"],int):
-                    obj_ID = str(ann["tracking_id"])
-                elif ann["tracking_id"][0] == 't':
-                    obj_ID = ann["tracking_id"][7:-1]
+            #################### 迭代网络模型结果 ###############################
+            for preAnn in preRes[cur_sample['token']]:
+                preAnnId = None
+                if isinstance(preAnn["tracking_id"],int):
+                    preAnnId = str(preAnn["tracking_id"])
+                elif preAnn["tracking_id"][0] == 't':
+                    preAnnId = preAnn["tracking_id"][7:-1]
                 else:
-                    obj_ID = ann["tracking_id"]
+                    preAnnId = preAnn["tracking_id"]
 
-                # 速度发布
-                velo2d = ann["velocity"][:2]
+                #################### 计算自车系/世界系下的速度横纵值(只是方向, 没有基于自车速度做速度补偿，#####################
+                #################### 还是世界系下的绝对速度，然后基于自车的朝向做了分解) ####################
+                preAnnVelo2dGlobal = preAnn["velocity"][:2]
                 # convert velo from global to ego
-                velo = np.array([*velo2d,0.0])
-                velo = velo @ np.linalg.inv(e2g_r_mat).T
-                velo2d = velo[:2]
+                preAnnVelo3dGlobal = np.array([*preAnnVelo2dGlobal, 0.0])
+                preAnnVelo3dEgo = preAnnVelo3dGlobal @ np.linalg.inv(ego2GlobalRotMat).T
+                preAnnVelo2dEgo = preAnnVelo3dEgo[:2]
 
-                delete_entity_all = scene_update_pred2.deletions.add()
-                delete_entity_all.type = 1
-                delete_entity_all.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
-                entity = scene_update_pred2.entities.add()
-                entity.frame_id = "base_link"
-                entity.timestamp.FromNanoseconds(stamp.to_nsec())
-                entity.id = obj_ID
-                entity.frame_locked = True
-                metadata = entity.metadata.add()
-                cube = entity.cubes.add()
-                cube.size.x = ann["size"][1]
-                cube.size.y = ann["size"][0]
-                cube.size.z = ann["size"][2]
-                cube.color.r = 1
-                cube.color.g = 1
-                cube.color.b = 0
-                cube.color.a = 0.3
-
+                ################## 计算自车系/世界系下的预测框位置和方位角 ################
                 # conver ann from global to ego
-                ann_center = np.array([ann["translation"][0], ann["translation"][1], ann["translation"][2]])
+                preAnnCenterGlobal = np.array([preAnn["translation"][0], preAnn["translation"][1], preAnn["translation"][2]])
                 # conver ann_centerfrom global to ego
-                ann_center = np.dot(np.linalg.inv(e2g_r_mat), ann_center-np.array(e2g_t))
-                ann_orientation = np.array([ann["rotation"][0], ann["rotation"][1], ann["rotation"][2], ann["rotation"][3]])
-                quaternion = Quaternion(matrix = np.linalg.inv(e2g_r_mat))
-                ann_orientation = quaternion * ann_orientation
+                preAnnCenterEgo = np.dot(np.linalg.inv(ego2GlobalRotMat), preAnnCenterGlobal - np.array(ego2GlobalTran))
+                preAnnOrientationGlobal = np.array([preAnn["rotation"][0], preAnn["rotation"][1], preAnn["rotation"][2], preAnn["rotation"][3]])
+                preQuatGlobal2Ego = Quaternion(matrix = np.linalg.inv(ego2GlobalRotMat))
+                preAnnOrientationEgo = preQuatGlobal2Ego * preAnnOrientationGlobal
 
-                cube.pose.position.x = ann_center[0]
-                cube.pose.position.y = ann_center[1]
-                cube.pose.position.z = ann_center[2]
-                cube.pose.orientation.w = ann_orientation[0]
-                cube.pose.orientation.x = ann_orientation[1]
-                cube.pose.orientation.y = ann_orientation[2]
-                cube.pose.orientation.z = ann_orientation[3]
+                #################### 发布迭代模型预测框位姿信息 ######################
+                preAnnDeleteEntity = preAnnSceneUpdate.deletions.add()
+                preAnnDeleteEntity.type = 1
+                preAnnDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
+
+                preAnnEntity = preAnnSceneUpdate.entities.add()
+                preAnnEntity.frame_id = "base_link"
+                preAnnEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                preAnnEntity.id = preAnnId
+                preAnnEntity.frame_locked = True
+
+                preAnnCube = preAnnEntity.cubes.add()
+                preAnnCube.size.x = preAnn["size"][1]
+                preAnnCube.size.y = preAnn["size"][0]
+                preAnnCube.size.z = preAnn["size"][2]
+                preAnnCube.color.r = 1
+                preAnnCube.color.g = 1
+                preAnnCube.color.b = 0
+                preAnnCube.color.a = 0.3
+
+                preAnnCube.pose.position.x = preAnnCenterEgo[0]
+                preAnnCube.pose.position.y = preAnnCenterEgo[1]
+                preAnnCube.pose.position.z = preAnnCenterEgo[2]
+                preAnnCube.pose.orientation.w = preAnnOrientationEgo[0]
+                preAnnCube.pose.orientation.x = preAnnOrientationEgo[1]
+                preAnnCube.pose.orientation.y = preAnnOrientationEgo[2]
+                preAnnCube.pose.orientation.z = preAnnOrientationEgo[3]
  
-                delete_entity_all_velo_x = pred_velo_x_scene_update2.deletions.add()
-                delete_entity_all_velo_x.type = 1
-                delete_entity_all_velo_x.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
-                entity_velo_x = pred_velo_x_scene_update2.entities.add()
-                entity_velo_x.frame_id = "base_link"
-                entity_velo_x.timestamp.FromNanoseconds(stamp.to_nsec())
-                entity_velo_x.id = obj_ID
-                entity_velo_x.frame_locked = True
-                texts_velo_x = entity_velo_x.texts.add()
-                texts_velo_x.pose.position.x = ann_center[0]
-                texts_velo_x.pose.position.y = ann_center[1]
-                texts_velo_x.pose.position.z = ann_center[2]
-                texts_velo_x.pose.orientation.w = ann_orientation[0]
-                texts_velo_x.pose.orientation.x = ann_orientation[1]
-                texts_velo_x.pose.orientation.y = ann_orientation[2]
-                texts_velo_x.pose.orientation.z = ann_orientation[3]
-                texts_velo_x.font_size = 0.01
-                texts_velo_x.text = str(velo2d[0])
+                ###################### 发布迭代网络预测框自车系下纵向速度信息 ###################
+                preVeloEgoXDeleteEntity = preVeloEgoXSceneUpdate.deletions.add()
+                preVeloEgoXDeleteEntity.type = 1
+                preVeloEgoXDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
 
-                delete_entity_all_velo_y = pred_velo_y_scene_update2.deletions.add()
-                delete_entity_all_velo_y.type = 1
-                delete_entity_all_velo_y.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
-                entity_velo_y = pred_velo_y_scene_update2.entities.add()
-                entity_velo_y.frame_id = "base_link"
-                entity_velo_y.timestamp.FromNanoseconds(stamp.to_nsec())
-                entity_velo_y.id = obj_ID
-                entity_velo_y.frame_locked = True
-                texts_velo_y = entity_velo_y.texts.add()
-                texts_velo_y.pose.position.x = ann_center[0]
-                texts_velo_y.pose.position.y = ann_center[1]
-                texts_velo_y.pose.position.z = ann_center[2]
-                texts_velo_y.pose.orientation.w = ann_orientation[0]
-                texts_velo_y.pose.orientation.x = ann_orientation[1]
-                texts_velo_y.pose.orientation.y = ann_orientation[2]
-                texts_velo_y.pose.orientation.z = ann_orientation[3]
-                texts_velo_y.font_size = 0.01
-                texts_velo_y.text = str(velo2d[1])
+                preVeloEgoXEntity = preVeloEgoXSceneUpdate.entities.add()
+                preVeloEgoXEntity.frame_id = "base_link"
+                preVeloEgoXEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                preVeloEgoXEntity.id = preAnnId
+                preVeloEgoXEntity.frame_locked = True
+
+                preVeloEgoXTexts = preVeloEgoXEntity.texts.add()
+                preVeloEgoXTexts.pose.position.x = preAnnCenterEgo[0]
+                preVeloEgoXTexts.pose.position.y = preAnnCenterEgo[1]
+                preVeloEgoXTexts.pose.position.z = preAnnCenterEgo[2]
+                preVeloEgoXTexts.pose.orientation.w = preAnnOrientationEgo[0]
+                preVeloEgoXTexts.pose.orientation.x = preAnnOrientationEgo[1]
+                preVeloEgoXTexts.pose.orientation.y = preAnnOrientationEgo[2]
+                preVeloEgoXTexts.pose.orientation.z = preAnnOrientationEgo[3]
+                preVeloEgoXTexts.font_size = 0.01
+                preVeloEgoXTexts.text = str(preAnnVelo2dEgo[0])
+
+                ###################### 发布迭代网络预测框自车系下横向速度信息 ###################
+                preVeloEgoYDeleteEntity = preVeloEgoYSceneUpdate.deletions.add()
+                preVeloEgoYDeleteEntity.type = 1
+                preVeloEgoYDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+
+                preVeloEgoYEntity = preVeloEgoYSceneUpdate.entities.add()
+                preVeloEgoYEntity.frame_id = "base_link"
+                preVeloEgoYEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                preVeloEgoYEntity.id = preAnnId
+                preVeloEgoYEntity.frame_locked = True
+                preVeloEgoYTexts = preVeloEgoYEntity.texts.add()
+
+                preVeloEgoYTexts.pose.position.x = preAnnCenterEgo[0]
+                preVeloEgoYTexts.pose.position.y = preAnnCenterEgo[1]
+                preVeloEgoYTexts.pose.position.z = preAnnCenterEgo[2]
+                preVeloEgoYTexts.pose.orientation.w = preAnnOrientationEgo[0]
+                preVeloEgoYTexts.pose.orientation.x = preAnnOrientationEgo[1]
+                preVeloEgoYTexts.pose.orientation.y = preAnnOrientationEgo[2]
+                preVeloEgoYTexts.pose.orientation.z = preAnnOrientationEgo[3]
+                preVeloEgoYTexts.font_size = 0.01
+                preVeloEgoYTexts.text = str(preAnnVelo2dEgo[1])
+
+                ###################### 发布迭代网络预测框世界系下纵向速度信息 ###################
+                preVeloGlobalXDeleteEntity = preVeloGlobalXSceneUpdate.deletions.add()
+                preVeloGlobalXDeleteEntity.type = 1
+                preVeloGlobalXDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+
+                preVeloGlobalXEntity = preVeloGlobalXSceneUpdate.entities.add()
+                preVeloGlobalXEntity.frame_id = "map"
+                preVeloGlobalXEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                preVeloGlobalXEntity.id = preAnnId
+                preVeloGlobalXEntity.frame_locked = True
+
+                preVeloGlobalXTexts = preVeloGlobalXEntity.texts.add()
+                preVeloGlobalXTexts.pose.position.x = preAnnCenterGlobal[0]
+                preVeloGlobalXTexts.pose.position.y = preAnnCenterGlobal[1]
+                preVeloGlobalXTexts.pose.position.z = preAnnCenterGlobal[2]
+                preVeloGlobalXTexts.pose.orientation.w = preAnnOrientationGlobal[0]
+                preVeloGlobalXTexts.pose.orientation.x = preAnnOrientationGlobal[1]
+                preVeloGlobalXTexts.pose.orientation.y = preAnnOrientationGlobal[2]
+                preVeloGlobalXTexts.pose.orientation.z = preAnnOrientationGlobal[3]
+                preVeloGlobalXTexts.font_size = 0.01
+                preVeloGlobalXTexts.text = str(preAnnVelo2dGlobal[0])
+
+                ###################### 发布迭代网络预测框世界系下横向速度信息 ###################
+                preVeloGlobalYDeleteEntity = preVeloGlobalYSceneUpdate.deletions.add()
+                preVeloGlobalYDeleteEntity.type = 1
+                preVeloGlobalYDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 100)
+
+                preVeloGlobalYEntity = preVeloGlobalYSceneUpdate.entities.add()
+                preVeloGlobalYEntity.frame_id = "map"
+                preVeloGlobalYEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                preVeloGlobalYEntity.id = preAnnId
+                preVeloGlobalYEntity.frame_locked = True
+
+                preVeloGlobalYTexts = preVeloGlobalYEntity.texts.add()
+                preVeloGlobalYTexts.pose.position.x = preAnnCenterGlobal[0]
+                preVeloGlobalYTexts.pose.position.y = preAnnCenterGlobal[1]
+                preVeloGlobalYTexts.pose.position.z = preAnnCenterGlobal[2]
+                preVeloGlobalYTexts.pose.orientation.w = preAnnOrientationGlobal[0]
+                preVeloGlobalYTexts.pose.orientation.x = preAnnOrientationGlobal[1]
+                preVeloGlobalYTexts.pose.orientation.y = preAnnOrientationGlobal[2]
+                preVeloGlobalYTexts.pose.orientation.z = preAnnOrientationGlobal[3]
+                preVeloGlobalYTexts.font_size = 0.01
+                preVeloGlobalYTexts.text = str(preAnnVelo2dGlobal[1])
                 
-                # 速度箭头发布
-                pred_velArrow_entity = pred_veloArrow_scene_update2.entities.add()
-                pred_velArrow_delete_entity_all = pred_veloArrow_scene_update2.deletions.add()
-                pred_velArrow_delete_entity_all.type = 1
-                pred_velArrow_delete_entity_all.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
-                pred_velArrow_entity.id = obj_ID
-                pred_velArrow_entity.frame_id = "base_link"
-                pred_velArrow_entity.timestamp.FromNanoseconds(stamp.to_nsec())
-                pred_velArrow_entity.frame_locked = True
-                Line = pred_velArrow_entity.lines.add()
-                Line.type = 0
-                Line.thickness = 0.1
-                Line.color.r = 0
-                Line.color.g = 0
-                Line.color.b = 0
-                Line.color.a = 0.8
-                Line.points.add(x = ann_center[0], y = ann_center[1], z = ann_center[2]) 
-                vel_L2 = np.sqrt(velo2d[0]**2 + velo2d[1]**2)
-                if vel_L2 >= 1: 
-                    Line.points.add(x = ann_center[0] + velo2d[0]/vel_L2*2, y = ann_center[1] + velo2d[1]/vel_L2*2, z = ann_center[2]) 
+                ###################### 发布迭代网络预测框速度箭头信息(可以跟随foxglove选定的基坐标系完成转化) ###################
+                preVeloArrowDeleteEntity = preVeloArrowSceneUpdate.deletions.add()
+                preVeloArrowDeleteEntity.type = 1
+                preVeloArrowDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
+
+                preVeloArrowEntity = preVeloArrowSceneUpdate.entities.add()
+                preVeloArrowEntity.id = preAnnId
+                preVeloArrowEntity.frame_id = "base_link"
+                preVeloArrowEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                preVeloArrowEntity.frame_locked = True
+
+                preVeloArrowLine = preVeloArrowEntity.lines.add()
+                preVeloArrowLine.type = 0
+                preVeloArrowLine.thickness = 0.1
+                preVeloArrowLine.color.r = 0
+                preVeloArrowLine.color.g = 0
+                preVeloArrowLine.color.b = 0
+                preVeloArrowLine.color.a = 0.8
+                preVeloArrowLine.points.add(x = preAnnCenterEgo[0], y = preAnnCenterEgo[1], z = preAnnCenterEgo[2]) 
+                preVeloL2 = np.sqrt(velo2d[0]**2 + velo2d[1]**2)
+                if preVeloL2 >= 1: 
+                    preVeloArrowLine.points.add(x = preAnnCenterEgo[0] + preAnnVelo2dEgo[0]/preVeloL2 * 2, y = preAnnCenterEgo[1] + preAnnVelo2dEgo[1]/preVeloL2 * 2, z = preAnnCenterEgo[2]) 
                 else:
-                    Line.points.add(x = ann_center[0] + velo2d[0], y = ann_center[1] + velo2d[1], z = ann_center[2])        
+                    preVeloArrowLine.points.add(x = preAnnCenterEgo[0] + preAnnVelo2dEgo[0], y = preAnnCenterEgo[1] + preAnnVelo2dEgo[1], z = preAnnCenterEgo[2])        
 
-                # 预测目标heading
-                pred_heading_entity = pred_heading_scene_update2.entities.add()
-                pred_heading_delete_entity_all = pred_heading_scene_update2.deletions.add()
-                pred_heading_delete_entity_all.type = 1
-                pred_heading_delete_entity_all.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
-                pred_heading_entity.id = obj_ID
-                pred_heading_entity.frame_id = "base_link"
-                pred_heading_entity.timestamp.FromNanoseconds(stamp.to_nsec())
-                pred_heading_entity.frame_locked = True
-                Line_heading = pred_heading_entity.arrows.add()
-                Line_heading.color.r = 238 / 255.0
-                Line_heading.color.g = 223 / 255.0
-                Line_heading.color.b = 204 / 255.0
-                Line_heading.color.a = 0.4
-                Line_heading.pose.position.x = ann_center[0]
-                Line_heading.pose.position.y = ann_center[1]
-                Line_heading.pose.position.z = ann_center[2] + ann["size"][2]/2
-                Line_heading.pose.orientation.w = ann_orientation[0]
-                Line_heading.pose.orientation.x = ann_orientation[1]
-                Line_heading.pose.orientation.y = ann_orientation[2]
-                Line_heading.pose.orientation.z = ann_orientation[3]
-                Line_heading.shaft_length = ann["size"][1]/2
-                Line_heading.shaft_diameter = 0.1
-                Line_heading.head_length = 0.01
-                Line_heading.head_diameter = 0.01
+                ###################### 网络迭代版本预测框车身heading发布, 用于观察车辆的走向 ######################
+                preHeadingDeleteEntity = preHeadingSceneUpdate.deletions.add()
+                preHeadingDeleteEntity.type = 1
+                preHeadingDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
 
-            protobuf_writer.write_message("/markers/pred2_heading", pred_heading_scene_update2, stamp.to_nsec())
-            protobuf_writer.write_message("/markers/pred2_arrowVel", pred_veloArrow_scene_update2, stamp.to_nsec())
-            protobuf_writer.write_message("/markers/pred2_velo_x", pred_velo_x_scene_update2, stamp.to_nsec()) 
-            protobuf_writer.write_message("/markers/pred2_velo_y", pred_velo_y_scene_update2, stamp.to_nsec())  
-            protobuf_writer.write_message("/markers/pred2_annotations", scene_update_pred2, stamp.to_nsec())              
-    
-            # 预测框的跟踪id text
-            for ann in anns2:
-                obj_ID = None
-                if isinstance(ann["tracking_id"],int):
-                    obj_ID = str(ann["tracking_id"])
-                elif ann["tracking_id"][0] == 't':
-                    obj_ID = ann["tracking_id"][7:-1]
-                else:
-                    obj_ID = ann["tracking_id"]
-                delete_entity_all = pred_id_scene_update2.deletions.add()
-                delete_entity_all.type = 1
-                delete_entity_all.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
-                entity = pred_id_scene_update2.entities.add()
-                entity.frame_id = "base_link"
-                entity.timestamp.FromNanoseconds(stamp.to_nsec())
-                entity.id = obj_ID
-                entity.frame_locked = True
-                texts = entity.texts.add()
+                preHeadingEntity = preHeadingSceneUpdate.entities.add()
+                preHeadingEntity.id = preAnnId
+                preHeadingEntity.frame_id = "base_link"
+                preHeadingEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                preHeadingEntity.frame_locked = True
 
-                # conver box from global to ego
-                ann_center = np.array([ann["translation"][0], ann["translation"][1], ann["translation"][2]])
-                # conver ann_centerfrom global to ego
-                ann_center = np.dot(np.linalg.inv(e2g_r_mat), ann_center-np.array(e2g_t))
-                ann_orientation = np.array([ann["rotation"][0], ann["rotation"][1], ann["rotation"][2], ann["rotation"][3]])
-                quaternion = Quaternion(matrix = np.linalg.inv(e2g_r_mat))
-                ann_orientation = quaternion * ann_orientation
+                preHeadingLine = preHeadingEntity.arrows.add()
+                preHeadingLine.color.r = 238 / 255.0
+                preHeadingLine.color.g = 223 / 255.0
+                preHeadingLine.color.b = 204 / 255.0
+                preHeadingLine.color.a = 0.4
+                preHeadingLine.pose.position.x = preAnnCenterEgo[0]
+                preHeadingLine.pose.position.y = preAnnCenterEgo[1]
+                preHeadingLine.pose.position.z = preAnnCenterEgo[2] + preAnn["size"][2]/2
+                preHeadingLine.pose.orientation.w = preAnnOrientationEgo[0]
+                preHeadingLine.pose.orientation.x = preAnnOrientationEgo[1]
+                preHeadingLine.pose.orientation.y = preAnnOrientationEgo[2]
+                preHeadingLine.pose.orientation.z = preAnnOrientationEgo[3]
+                preHeadingLine.shaft_length = preAnn["size"][1]/2
+                preHeadingLine.shaft_diameter = 0.1
+                preHeadingLine.head_length = 0.01
+                preHeadingLine.head_diameter = 0.01
 
-                texts.pose.position.x = ann_center[0]
-                texts.pose.position.y = ann_center[1]
-                texts.pose.position.z = ann_center[2]
-                texts.pose.orientation.w = ann_orientation[0]
-                texts.pose.orientation.x = ann_orientation[1]
-                texts.pose.orientation.y = ann_orientation[2]
-                texts.pose.orientation.z = ann_orientation[3]
-                texts.font_size = 0.5
-                texts.text = obj_ID
-            protobuf_writer.write_message("/markers/pred2_id", pred_id_scene_update2, stamp.to_nsec())    
-            #####################################################
+                ################# 发布网络迭代结果的预测目标ID信息  #############
+                preIdDeleteEntity = preIdSceneUpdate.deletions.add()
+                preIdDeleteEntity.type = 1
+                preIdDeleteEntity.timestamp.FromNanoseconds(stamp.to_nsec() + 50)
 
-            ##################### 数据真值 ##################################
-            # gt框的cube
+                preIdEntity = preIdSceneUpdate.entities.add()
+                preIdEntity.frame_id = "base_link"
+                preIdEntity.timestamp.FromNanoseconds(stamp.to_nsec())
+                preIdEntity.id = basePreAnnId
+                preIdEntity.frame_locked = True
+                
+                preIdTexts = preIdEntity.texts.add()
+                preIdTexts.pose.position.x = preAnnCenterEgo[0]
+                preIdTexts.pose.position.y = preAnnCenterEgo[1]
+                preIdTexts.pose.position.z = preAnnCenterEgo[2]
+                preIdTexts.pose.orientation.w = preAnnOrientationEgo[0]
+                preIdTexts.pose.orientation.x = preAnnOrientationEgo[1]
+                preIdTexts.pose.orientation.y = preAnnOrientationEgo[2]
+                preIdTexts.pose.orientation.z = preAnnOrientationEgo[3]
+                preIdTexts.font_size = 0.5
+                preIdTexts.text = preAnnId
+
+            protobuf_writer.write_message("/markers/preHeading", preHeadingSceneUpdate, stamp.to_nsec())
+            protobuf_writer.write_message("/markers/preArrow", preVeloArrowSceneUpdate, stamp.to_nsec())
+            protobuf_writer.write_message("/markers/preVeloEgoX", preVeloEgoXSceneUpdate, stamp.to_nsec()) 
+            protobuf_writer.write_message("/markers/preVeloEgoY", preVeloEgoYSceneUpdate, stamp.to_nsec())  
+            protobuf_writer.write_message("/markers/preVeloGlobalX", preVeloGlobalXSceneUpdate, stamp.to_nsec()) 
+            protobuf_writer.write_message("/markers/preVeloGlobalY", preVeloGlobalYSceneUpdate, stamp.to_nsec())  
+            protobuf_writer.write_message("/markers/preAnns", preAnnSceneUpdate, stamp.to_nsec())              
+            protobuf_writer.write_message("/markers/preId", preIdSceneUpdate, stamp.to_nsec())                
+
+
+            ######################### GT真值信息 ##################################
             for annotation_id in cur_sample["anns"]:
                 # gt_anns global velo 
                 velo2d = nusc.box_velocity(annotation_id)[:2]                  # narray

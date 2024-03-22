@@ -1,4 +1,5 @@
 # Release Notes
+该工具箱用于配合评估工具箱https://github.com/hjfenghj/streampetr_nuscenens_tracking_eval的输出(位置波动高亮json, ID跳变json和关联线json), 实现streampetr网络预测结果的可视化。用于评估网络预测的稳定性, 可以观察密集场景的关联效果和预测目标的ID跳变情况
 
 
 ### Improvements

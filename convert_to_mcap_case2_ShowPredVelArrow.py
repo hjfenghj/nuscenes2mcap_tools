@@ -943,7 +943,7 @@ def write_scene_to_mcap(nusc, scene, filepath, basePreRes, preRes, caseInfos, us
                 gtIdEntity.id = gtId
                 gtIdEntity.frame_locked = True
                 
-                gtIdTexts = preIdEntity.texts.add()
+                gtIdTexts = gtIdEntity.texts.add()
                 gtIdTexts.pose.position.x = gtAnnCenterEgo[0]
                 gtIdTexts.pose.position.y = gtAnnCenterEgo[1]
                 gtIdTexts.pose.position.z = gtAnnCenterEgo[2]

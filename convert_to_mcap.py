@@ -982,7 +982,6 @@ def convert_all(
     output_dir: Path,
     name: str,
     nusc: NuScenes,
-    nusc_can: NuScenesCanBus,
     basePreJson,
     preJson,
     caseJsonFile,
@@ -1027,7 +1026,6 @@ def main():
     parser.add_argument("--use-case", type = int,  default= 1, help="use case.json or not")
 
     args = parser.parse_args()
-    nusc_can = NuScenesCanBus(dataroot=str(args.data_dir))
 
     pred_json_file = os.path.join(root_injson, args.result_json_name)    # baseline模型版本结果
     pred_json_file2 = os.path.join(root_injson, args.result_json_name2)  # 更新后的网络版本结果
@@ -1038,7 +1036,7 @@ def main():
         if args.list_only:
             nusc.list_scenes()
             return
-        convert_all(args.output_dir, name, nusc, nusc_can, pred_json_file, pred_json_file2, case_json_file, use_case=args.use_case)
+        convert_all(args.output_dir, name, nusc, pred_json_file, pred_json_file2, case_json_file, use_case=args.use_case)
 
 if __name__ == "__main__":
     main()

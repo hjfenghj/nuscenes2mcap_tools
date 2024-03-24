@@ -15,7 +15,7 @@ case_json_name: case文件选择, case_v.json表示对比速度的目标case文�
 
 
 ### Improvements
-
+* 修改脚本名称
 
 
 ### Fixes

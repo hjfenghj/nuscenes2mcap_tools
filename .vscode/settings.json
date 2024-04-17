@@ -1,6 +1,3 @@
-{
-    "python.formatting.provider": "black",
-    "[python]": {
-        "editor.formatOnSave": true
-    }
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:231aac8b6df62bd9b54349ff4d41944c7343f90e5b22646e0d3b5413436df24b
+size 106

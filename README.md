@@ -87,3 +87,10 @@ v2:返修标注问题的数据验收,将标注问题的返修转为mcap,进行�
 3. 运行方式
 进入docker镜像环境
 python3 KanHu_AIV5_convert_rawdate_to_mcap_add2DBox.py --version v0 
+
+
+
+4. 其他
+可以run.sh中的数据挂载，本地的路径data_link换乘data_demo就能直接运行
+
+仓乎缺点: 没有考虑用户比较容易接受的文件层级和使用需求，仅仅是记录工作，防止遗忘。重点是这里的2d框投影和点云自动反投的操作

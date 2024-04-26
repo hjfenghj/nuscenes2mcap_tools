@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<opencv_storage>
+	<camera_name>cam_blf_jpeg</camera_name>
+	<camera_model>FISHEYE</camera_model>
+	<_rvector type_id="opencv-matrix">
+		<rows>1</rows>
+		<cols>3</cols>
+		<dt>d</dt>
+		<data>1.4749140231407436 -0.5787245703676476 0.5917470134508933</data>
+	</_rvector>
+	<_tvector type_id="opencv-matrix">
+		<rows>1</rows>
+		<cols>3</cols>
+		<dt>d</dt>
+		<data>2.5210054985519155 1.2641292350593079 0.511867710780213</data>
+	</_tvector>
+	<new_mat_fisheye type_id="opencv-matrix">
+		<rows>3</rows>
+		<cols>3</cols>
+		<dt>d</dt>
+		<data>842.82843 0 942.591736 0 842.997681 470.475098 0 0 1</data>
+	</new_mat_fisheye>
+	<distortion_coefficients type_id="opencv-matrix">
+		<rows>4</rows>
+		<cols>1</cols>
+		<dt>d</dt>
+		<data>-0.0383424 -0.00139686 -0.0127432 0.00652882</data>
+	</distortion_coefficients>
+</opencv_storage>

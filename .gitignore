@@ -7,5 +7,5 @@ data
 output
 .DS_Store
 __pycache__
-*.mcap
+*0035.mcap
 data_link

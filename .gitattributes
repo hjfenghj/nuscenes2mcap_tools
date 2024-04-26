@@ -1,2 +1,5 @@
 foxglove/** linguist-vendored linguist-generated
 *.json filter=lfs diff=lfs merge=lfs -text
+*.mcap filter=lfs diff=lfs merge=lfs -text
+*.mp4 filter=lfs diff=lfs merge=lfs -text 
+*.exe filter=lfs diff=lfs merge=lfs -text

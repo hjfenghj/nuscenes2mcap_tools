@@ -910,7 +910,7 @@ def convert_all(
 def main():
     parser = argparse.ArgumentParser()
     script_dir = Path(__file__).parent
-    parser.add_argument("--data-dir", "-d", default=script_dir / "data", help="path to nuscenes data directory")
+    parser.add_argument("--data-dir", "-d", default=script_dir / "data_link", help="path to aiv5 data directory")
     parser.add_argument("--output-dir", "-o", type=Path, default=script_dir / "output", help="path to write MCAP files into")
 
     parser.add_argument("--version", type=str, default=" ", help= "v0:原始版本数据的格式清洗,将格式没有问题的数据转为mcap,支持标注验收(读取整个数据文件夹),\
